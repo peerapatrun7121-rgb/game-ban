@@ -40,7 +40,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD | ระบบคุมพิกัดอิสระ (Zero Lag Movement)</p>
+            <p>ระบบซิงค์สมบูรณ์แบบ | เดินอิสระไร้แรงดึงและเห็นคนอื่นเคลื่อนที่นุ่มนวล</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -130,7 +130,7 @@
             ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 5); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x - 10, y - 5); ctx.lineTo(x + 10, y - 5); ctx.stroke();
             
-            let limitedVx = Math.max(-3.5, Math.min(3.5, vx));
+            let limitedVx = Math.max(-4.0, Math.min(4.0, vx));
             ctx.beginPath(); ctx.moveTo(x, y + 5);
             ctx.lineTo(x - 6 + (limitedVx * 2), y + 18); ctx.moveTo(x, y + 5);
             ctx.lineTo(x + 6 - (limitedVx * 2), y + 18); ctx.stroke();
@@ -173,27 +173,17 @@
                     players[updatedPlayer.id].targetX = updatedPlayer.x;
                     players[updatedPlayer.id].targetY = updatedPlayer.y;
                 } else {
-                    // อัปเดตสถานะของทุกคน
                     players[updatedPlayer.id].isIt = updatedPlayer.isIt;
                     players[updatedPlayer.id].bombTimer = updatedPlayer.bombTimer;
                     players[updatedPlayer.id].cooldown = updatedPlayer.cooldown;
                     players[updatedPlayer.id].isSpectator = updatedPlayer.isSpectator;
                     
                     if (updatedPlayer.id !== myId) {
-                        // สำหรับคนอื่น: เก็บพิกัดเป้าหมายไว้สไลด์ตามปกติ
+                        // อัปเดตพิกัดเป้าหมายของผู้เล่นคนอื่นเพื่อนำมาเกลี่ยเฟรมให้ลื่น
                         players[updatedPlayer.id].vx = updatedPlayer.vx;
                         players[updatedPlayer.id].vy = updatedPlayer.vy;
                         players[updatedPlayer.id].targetX = updatedPlayer.x;
                         players[updatedPlayer.id].targetY = updatedPlayer.y;
-                    } else {
-                        // ✨ ส่วนสำคัญที่สุดแก้ทางแปลก/กระตุก: 
-                        // สำหรับตัวเราเอง ห้ามเอาพิกัดเซิร์ฟเวอร์มาทับหรือมาสไลด์แก้เด็ดขาด เพื่อให้การคุมพิกัดเป็นแบบออฟไลน์ลื่นๆ
-                        // จะยอมรับพิกัดเซิร์ฟเวอร์ดึงกลับก็ต่อเมื่อเครื่องเรา "บั๊กทะลุกำแพงข้ามแมพ" ไปไกลเกิน 150 พิกัดเท่านั้น
-                        let distanceError = Math.hypot(players[myId].x - updatedPlayer.x, players[myId].y - updatedPlayer.y);
-                        if (distanceError > 150) { 
-                            players[myId].x = updatedPlayer.x;
-                            players[myId].y = updatedPlayer.y;
-                        }
                     }
                 }
             });
@@ -213,12 +203,11 @@
             gameRunning = true; window.requestAnimationFrame(gameLoop);
         }
 
-        // ตัวเราคุมพิกัดตัวเองแบบ Singleplayer ไร้ดีเลย์อินเทอร์เน็ตมากวนใจ
         function updateLocalPlayer() {
             let me = players[myId];
             if (!me || me.isSpectator) return;
 
-            let baseSpeed = 3.5;
+            let baseSpeed = 4.0; 
             let targetVx = 0;
             let targetVy = 0;
 
@@ -244,25 +233,24 @@
             handleWallCollision(me, 'y', radius);
             me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
 
-            // ส่งข้อมูลสัญญาณกดปุ่มไปบอกหลังบ้านตามปกติ
+            // ส่งข้อมูลพิกัดตรงจากหน้าจอเราไปอัปเดตให้เซิร์ฟเวอร์กระจายออก
             if (socket && socket.connected) {
-                socket.emit('player_move', {
-                    up: inputState.up,
-                    down: inputState.down,
-                    left: inputState.left,
-                    right: inputState.right
+                socket.emit('player_move_direct', {
+                    x: me.x,
+                    y: me.y,
+                    vx: me.vx,
+                    vy: me.vy
                 });
             }
         }
 
-        // สไลด์ตำแหน่งผู้เล่นคนอื่นให้นุ่มนวล
         function lerpPlayers() {
             Object.keys(players).forEach(id => {
                 let p = players[id];
                 if (id !== myId) {
                     if (p.targetX !== undefined && p.targetY !== undefined) {
-                        p.x += (p.targetX - p.x) * 0.15;
-                        p.y += (p.targetY - p.y) * 0.15;
+                        p.x += (p.targetX - p.x) * 0.25; // สไลด์คนอื่นอย่างรวดเร็วและเป็นธรรมชาติ
+                        p.y += (p.targetY - p.y) * 0.25;
                     }
                 }
             });
