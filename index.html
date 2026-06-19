@@ -6,89 +6,26 @@
     <title>เกมวิ่งไล่จับขี้ก้างออนไลน์ - บอมบ์ไทม์</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #222;
-            color: white;
+            margin: 0; padding: 0; background-color: #222; color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: none;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; touch-action: none;
         }
-        #menu-container, #game-container {
-            text-align: center;
-            position: relative;
-            width: 100%;
-            max-width: 800px;
-        }
-        #game-container {
-            display: none;
-        }
-        canvas {
-            background-color: #111;
-            border: 4px solid #444;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            max-width: 100%;
-            height: auto;
-        }
-        .menu-box {
-            background-color: #333;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            margin: 20px;
-        }
-        input[type="text"] {
-            width: 80%;
-            padding: 12px;
-            margin: 20px 0;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            text-align: center;
-        }
-        button {
-            background-color: #ff4757;
-            color: white;
-            border: none;
-            padding: 12px 40px;
-            font-size: 18px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: 0.2s;
-            width: 50%;
-        }
-        button:hover {
-            background-color: #ff6b81;
-        }
+        #menu-container, #game-container { text-align: center; position: relative; width: 100%; max-width: 800px; }
+        #game-container { display: none; }
+        canvas { background-color: #111; border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 100%; height: auto; }
+        .menu-box { background-color: #333; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin: 20px; }
+        input[type="text"] { width: 80%; padding: 12px; margin: 20px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; }
+        button { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 50%; }
+        button:hover { background-color: #ff6b81; }
         /* จอยสติ๊กจำลองบนมือถือ */
         #joystick-container {
-            display: none;
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 120px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border: 3px solid rgba(255, 255, 255, 0.4);
-            border-radius: 50%;
-            justify-content: center;
-            align-items: center;
-            user-select: none;
-            -webkit-user-select: none;
+            display: none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 110px; height: 110px; background-color: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+            justify-content: center; align-items: center; user-select: none; -webkit-user-select: none;
         }
-        #joystick-knob {
-            width: 50px;
-            height: 50px;
-            background-color: #ff4757;
-            border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            position: absolute;
-        }
+        #joystick-knob { width: 45px; height: 45px; background-color: #ff4757; border-radius: 50%; position: absolute; }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -106,37 +43,29 @@
 
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
-        
-        <div id="joystick-container">
-            <div id="joystick-knob"></div>
-        </div>
+        <div id="joystick-container"><div id="joystick-knob"></div></div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        let socket; 
-        let myId;
-        let players = {}; 
-        let gameState = { status: "waiting", timer: 0 }; // สถานะจากเซิร์ฟเวอร์
-        let gameRunning = false;
-        let isMobile = false;
+        let socket; let myId; let players = {}; 
+        let gameState = { status: "waiting", timer: 0 };
+        let gameRunning = false; let isMobile = false;
 
         if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
             isMobile = true;
         }
 
-        // สิ่งกีดขวาง
         const walls = [
             { x: 200, y: 150, w: 40, h: 200 },
             { x: 560, y: 150, w: 40, h: 200 },
             { x: 350, y: 230, w: 100, h: 40 }
         ];
 
-        // ตัวแปรควบคุมอินพุต
         const inputState = { up: false, down: false, left: false, right: false };
-        let joystickVector = { x: 0, y: 0 }; // สำหรับจอยสติกมือถือ
+        let joystickVector = { x: 0, y: 0 };
 
         function setupControls() {
             window.addEventListener('keydown', e => { handleKey(e.key, true); });
@@ -152,40 +81,33 @@
 
                 container.addEventListener('touchstart', (e) => {
                     isDrawing = true;
-                    const touch = e.touches[0];
                     const rect = container.getBoundingClientRect();
                     startX = rect.left + rect.width / 2;
                     startY = rect.top + rect.height / 2;
                 });
 
                 container.addEventListener('touchmove', (e) => {
-                    if (!isDrawing) return;
-                    e.preventDefault();
+                    if (!isDrawing) return; e.preventDefault();
                     const touch = e.touches[0];
-                    
                     let deltaX = touch.clientX - startX;
                     let deltaY = touch.clientY - startY;
                     let distance = Math.hypot(deltaX, deltaY);
-                    let maxRadius = 35; // ระยะดึงจอยสูงสุด
+                    let maxRadius = 35; 
 
                     if (distance > maxRadius) {
                         deltaX = (deltaX / distance) * maxRadius;
                         deltaY = (deltaY / distance) * maxRadius;
-                        distance = maxRadius;
                     }
-
                     knob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
                     
-                    // แปลงค่าเวกเตอร์ความแรงระหว่าง -1 ถึง 1
+                    // บั๊กความเร็วถูกแก้ตรงนี้: จำกัดค่าจอยสติ๊กให้อยู่ในช่วงไม่เกิน 1 เสมอ
                     joystickVector.x = deltaX / maxRadius;
                     joystickVector.y = deltaY / maxRadius;
                 });
 
                 container.addEventListener('touchend', () => {
-                    isDrawing = false;
-                    knob.style.transform = 'translate(0px, 0px)';
-                    joystickVector.x = 0;
-                    joystickVector.y = 0;
+                    isDrawing = false; knob.style.transform = 'translate(0px, 0px)';
+                    joystickVector.x = 0; joystickVector.y = 0;
                 });
             }
         }
@@ -198,59 +120,31 @@
             if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
         }
 
-        // ฟังก์ชันวาดตัวละครขี้ก้าง
         function drawStickman(x, y, name, isIt, vx, vy, bombTimer, isSpectator, cooldown) {
-            // กำหนดสี: คนดู = สีเทาโปร่งแสง, คนเป็นระเบิด = แดง, คนปกติ = ขาว
             let color = isIt ? '#ff4757' : '#ffffff';
-            if (isSpectator) color = 'rgba(150,150,150,0.4)';
-            if (cooldown > 0) color = '#ff9f43'; // สีส้มตอนติดคูลดาวน์
+            if (isSpectator) color = 'rgba(150,150,150,0.35)';
+            if (cooldown > 0) color = '#ff9f43'; // สีส้มตอนติดคูลดาวน์โดนแปะ
 
-            ctx.strokeStyle = color;
-            ctx.fillStyle = color;
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3;
+            ctx.font = "14px Arial"; ctx.textAlign = "center";
+            ctx.fillText(name + (isSpectator ? " [คนดู]" : "") + (cooldown > 0 ? " [CD]" : ""), x, y - 32);
 
-            // วาดชื่อ
-            ctx.font = "14px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText(name + (isSpectator ? " [คนดู]" : ""), x, y - 32);
-
-            // ถ้าเป็นคนติดระเบิด ให้วาดรูประเบิดพร้อมเวลานับถอยหลัง
             if (isIt && !isSpectator) {
-                ctx.font = "20px Arial";
-                ctx.fillText(`💣 ${bombTimer}s`, x, y - 50);
+                ctx.font = "bold 18px Arial";
+                ctx.fillText(`💣 ${bombTimer}s`, x, y - 52);
             }
 
-            // ตัวสติ๊กแมน
-            ctx.beginPath();
-            ctx.arc(x, y - 15, 6, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(x, y - 9);
-            ctx.lineTo(x, y + 5);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(x - 10, y - 5);
-            ctx.lineTo(x + 10, y - 5);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(x, y + 5);
-            ctx.lineTo(x - 6 + (vx * 2), y + 18);
-            ctx.moveTo(x, y + 5);
-            ctx.lineTo(x + 6 - (vx * 2), y + 18);
-            ctx.stroke();
+            ctx.beginPath(); ctx.arc(x, y - 15, 6, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x - 10, y - 5); ctx.lineTo(x + 10, y - 5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, y + 5);
+            ctx.lineTo(x - 6 + (vx * 2), y + 18); ctx.moveTo(x, y + 5);
+            ctx.lineTo(x + 6 - (vx * 2), y + 18); ctx.stroke();
         }
 
         function drawWalls() {
-            ctx.fillStyle = '#444444';
-            ctx.strokeStyle = '#666666';
-            ctx.lineWidth = 2;
-            walls.forEach(wall => {
-                ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
-                ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
-            });
+            ctx.fillStyle = '#444444'; ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
+            walls.forEach(wall => { ctx.fillRect(wall.x, wall.y, wall.w, wall.h); ctx.strokeRect(wall.x, wall.y, wall.w, wall.h); });
         }
 
         function startGame() {
@@ -261,44 +155,34 @@
             document.getElementById('game-container').style.display = 'block';
 
             setupControls();
-
             socket = io('https://tag-game-server.onrender.com'); 
 
-            socket.on('connect', () => {
-                myId = socket.id;
-                socket.emit('join_game', { name: nameInput });
-            });
-
+            socket.on('connect', () => { myId = socket.id; socket.emit('join_game', { name: nameInput }); });
             socket.on('current_players', (serverPlayers) => { players = serverPlayers; });
             socket.on('new_player', (newPlayerData) => { players[newPlayerData.id] = newPlayerData; });
             socket.on('player_updated', (updatedPlayer) => { if (players[updatedPlayer.id]) players[updatedPlayer.id] = updatedPlayer; });
-            
             socket.on('player_disconnected', (id) => { delete players[id]; });
+            socket.on('game_state_update', (state) => { gameState = state; });
 
-            // ตรวจสอบและรับข้อมูลสถานะห้องและรอบจากเซิร์ฟเวอร์
-            socket.on('game_state_update', (state) => {
-                gameState = state;
-            });
-
-            // กรณีโดนระเบิดตาย ให้ดีดกลับหน้าจอแรก
             socket.on('you_exploded', () => {
                 alert("💥 ตู้มมม! คุณถือระเบิดนานเกินไปจนระเบิดทำงานตกรอบครับ!");
                 location.reload();
             });
 
-            gameRunning = true;
-            window.requestAnimationFrame(gameLoop);
+            socket.on('game_over_winner', (winnerName) => {
+                alert(`🎉 จบรอบ! ผู้ชนะที่อยู่รอดคนสุดท้ายคือคุณ: ${winnerName}!!`);
+            });
+
+            gameRunning = true; window.requestAnimationFrame(gameLoop);
         }
 
         function updateLocalPlayer() {
             let me = players[myId];
-            if (!me || me.isSpectator) return; // ถ้าเป็นคนดูหรือข้อมูลยังไม่มา จะควบคุมไม่ได้
+            if (!me || me.isSpectator) return;
 
-            let targetVx = 0;
-            let targetVy = 0;
-            let baseSpeed = 3.5;
+            let targetVx = 0; let targetVy = 0;
+            let baseSpeed = 3.5; // ความเร็วมาตรฐานที่เท่ากันทุกเครื่อง
 
-            // ตรวจสอบอินพุต (แยกตาม คอมฯ หรือ จอยสติกมือถือ)
             if (isMobile) {
                 targetVx = joystickVector.x * baseSpeed;
                 targetVy = joystickVector.y * baseSpeed;
@@ -307,19 +191,11 @@
                 if (inputState.down) targetVy = baseSpeed;
                 if (inputState.left) targetVx = -baseSpeed;
                 if (inputState.right) targetVx = baseSpeed;
-
-                // Normalize ความเร็วเวกเตอร์กรณีเดินเฉียงของคอมพิวเตอร์ให้ไม่เดินไวเกินไป
-                if (targetVx !== 0 && targetVy !== 0) {
-                    targetVx *= 0.7071;
-                    targetVy *= 0.7071;
-                }
+                if (targetVx !== 0 && targetVy !== 0) { targetVx *= 0.7071; targetVy *= 0.7071; }
             }
 
-            me.vx = targetVx;
-            me.vy = targetVy;
-
-            let radius = 12;
-            me.x += me.vx;
+            me.vx = targetVx; me.vy = targetVy;
+            let radius = 12; me.x += me.vx;
             handleWallCollision(me, 'x', radius);
             me.x = Math.max(radius, Math.min(canvas.width - radius, me.x));
 
@@ -336,7 +212,6 @@
             for (let wall of walls) {
                 if (playerObj.x + radius > wall.x && playerObj.x - radius < wall.x + wall.w &&
                     playerObj.y + radius > wall.y && playerObj.y - radius < wall.y + wall.h) {
-                    
                     if (axis === 'x') {
                         if (playerObj.vx > 0) playerObj.x = wall.x - radius;
                         if (playerObj.vx < 0) playerObj.x = wall.x + wall.w + radius;
@@ -349,7 +224,6 @@
             }
         }
 
-        // ตรวจสอบการวิ่งไปแปะตัวส่งระเบิด
         function checkCollisions() {
             let me = players[myId];
             if (!me || !me.isIt || me.isSpectator || me.cooldown > 0) return; 
@@ -357,50 +231,35 @@
             Object.keys(players).forEach(id => {
                 if (id === myId) return;
                 let other = players[id];
-                if (other.isSpectator || other.cooldown > 0) return; // ห้ามแปะคนดูหรือคนที่ติดคูลดาวน์
+                if (other.isSpectator || other.cooldown > 0) return; 
 
                 let dist = Math.hypot(me.x - other.x, me.y - other.y);
-                if (dist < 28) { 
-                    socket.emit('tag_player', { itId: myId, taggedId: id });
-                }
+                if (dist < 28) { socket.emit('tag_player', { itId: myId, taggedId: id }); }
             });
         }
 
         function gameLoop() {
             if (!gameRunning) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawWalls();
 
-            // วาดแผงสถานะเกมด้านบน
-            ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-            ctx.fillRect(0, 0, canvas.width, 40);
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 15px Arial";
-            ctx.textAlign = "center";
+            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; ctx.fillRect(0, 0, canvas.width, 40);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 15px Arial"; ctx.textAlign = "center";
 
-            // การแสดงสถานะห้องแข่งขันตามเงื่อนไขรอบการเล่น
             if (gameState.status === "waiting") {
-                ctx.fillStyle = "#ffb8b8";
-                ctx.fillText("⚠️ [ รอผู้เล่นเข้าห้อง ] ต้องการผู้เล่นอย่างน้อย 2 คนเพื่อเริ่มรอบใหม่", canvas.width / 2, 25);
+                ctx.fillStyle = "#ffb8b8"; ctx.fillText("⚠️ [ รอผู้เล่น ] ต้องการผู้เล่นอย่างน้อย 2 คนเพื่อเริ่มเกม", canvas.width / 2, 25);
             } else if (gameState.status === "countdown") {
-                ctx.fillStyle = "#fffa65";
-                ctx.fillText(`🎮 ผู้เล่นครบแล้ว! กำลังจะเริ่มเกมในอีก ${gameState.timer} วินาที...`, canvas.width / 2, 25);
+                ctx.fillStyle = "#fffa65"; ctx.fillText(`🎮 ผู้เล่นครบแล้ว! กำลังจะเริ่มในอีก ${gameState.timer} วินาที...`, canvas.width / 2, 25);
             } else if (gameState.status === "playing") {
-                ctx.fillStyle = "#2ed573";
-                ctx.fillText("💥 รอบกำลังแข่งขันกันอยู่! เอาระเบิดไปแปะส่งต่อคนอื่นและอยู่รอดเป็นคนสุดท้าย!", canvas.width / 2, 25);
+                ctx.fillStyle = "#2ed573"; ctx.fillText("💥 รอบการแข่งขันกำลังดำเนินอยู่! เอาระเบิดไปแปะส่งต่อคนอื่นเพื่อเอาชีวิตรอด!", canvas.width / 2, 25);
             }
 
-            updateLocalPlayer();
-            checkCollisions();
+            updateLocalPlayer(); checkCollisions();
 
-            // วาดผู้เล่นทุกคน
             Object.keys(players).forEach(id => {
                 let p = players[id];
-                // ส่งพารามิเตอร์เพื่อทำการคำนวณและแสดงผลกราฟิก
-                drawStickman(p.x, p.y, p.name, p.isIt, p.vx, p.vy, p.bombTimer || 10, p.isSpectator, p.cooldown || 0);
+                drawStickman(p.x, p.y, p.name, p.isIt, p.vx, p.vy, p.bombTimer, p.isSpectator, p.cooldown || 0);
             });
-
             window.requestAnimationFrame(gameLoop);
         }
     </script>
