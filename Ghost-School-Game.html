@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>โรงเรียนร้าง | ปริศนาแห่งความเงียบ</title>
+<style>
+  @font-face {
+    font-family: 'Stencil';
+    src: local('Arial Black');
+  }
+  :root{
+    --green-dark:#1c2b22;
+    --green-mid:#2f4a35;
+    --green-faded:#5a7a5f;
+    --mustard:#c7a23c;
+    --mustard-bright:#e8c155;
+    --blood:#5c1b1b;
+    --blood-bright:#8c2222;
+    --paper:#d9cfa8;
+    --ink:#1a1812;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{
+    width:100%;height:100%;overflow:hidden;
+    background:#000;
+    font-family:'Courier New', monospace;
+    cursor:none;
+  }
+  #gameCanvas{display:block;width:100%;height:100%;}
+
+  /* ===== Crosshair ===== */
+  #crosshair{
+    position:fixed;top:50%;left:50%;
+    width:6px;height:6px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:rgba(232,193,85,0.85);
+    box-shadow:0 0 4px rgba(232,193,85,0.6);
+    pointer-events:none;
+    z-index:50;
+    transition:transform .12s ease;
+  }
+  #crosshair.interact{
+    width:10px;height:10px;
+    background:transparent;
+    border:2px solid var(--mustard-bright);
+    box-shadow:0 0 8px var(--mustard-bright);
+  }
+
+  /* ===== HUD ===== */
+  #hud{
+    position:fixed;inset:0;pointer-events:none;z-index:40;
+  }
+  #vignette{
+    position:fixed;inset:0;pointer-events:none;z-index:30;
+    background:radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,0.75) 100%);
+  }
+  #grain{
+    position:fixed;inset:0;pointer-events:none;z-index:31;opacity:0.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  #flashOverlay{
+    position:fixed;inset:0;pointer-events:none;z-index:35;
+    background:rgba(140,20,20,0);
+    transition:background .08s ease;
+  }
+
+  #topLeftHud{
+    position:fixed;top:18px;left:18px;z-index:41;
+    color:var(--mustard-bright);
+    font-size:11px;letter-spacing:2px;text-transform:uppercase;
+    text-shadow:0 0 6px rgba(0,0,0,0.9);
+    line-height:1.8;
+  }
+  #clueCounter{
+    border:1px solid var(--mustard);
+    background:rgba(20,20,15,0.55);
+    padding:6px 10px;
+    display:inline-block;
+  }
+
+  #sanityBarWrap{
+    position:fixed;top:18px;right:18px;z-index:41;
+    width:140px;
+  }
+  #sanityLabel{
+    color:var(--blood-bright);font-size:10px;letter-spacing:2px;
+    text-transform:uppercase;margin-bottom:4px;text-align:right;
+    text-shadow:0 0 6px #000;
+  }
+  #sanityBar{
+    height:8px;width:100%;
+    background:rgba(20,15,15,0.6);
+    border:1px solid var(--blood-bright);
+  }
+  #sanityFill{
+    height:100%;width:100%;
+    background:linear-gradient(90deg,var(--blood),var(--blood-bright));
+    transition:width .4s ease;
+  }
+
+  #interactPrompt{
+    position:fixed;bottom:14%;left:50%;transform:translate(-50%,10px);
+    z-index:41;
+    color:var(--paper);
+    background:rgba(20,18,12,0.75);
+    border:1px solid var(--mustard);
+    padding:8px 16px;
+    font-size:13px;letter-spacing:1px;
+    opacity:0;transition:opacity .15s ease, transform .15s ease;
+    text-align:center;
+    pointer-events:none;
+  }
+  #interactPrompt.show{opacity:1;transform:translate(-50%,0);}
+  #interactPrompt .key{
+    display:inline-block;border:1px solid var(--mustard-bright);
+    padding:1px 6px;margin-right:6px;color:var(--mustard-bright);
+  }
+
+  #subtitle{
+    position:fixed;bottom:6%;left:50%;transform:translateX(-50%);
+    z-index:41;color:#cfcfcf;font-style:italic;font-size:14px;
+    text-shadow:0 0 6px #000;opacity:0;transition:opacity .6s ease;
+    max-width:70%;text-align:center;
+  }
+  #subtitle.show{opacity:1;}
+
+  /* ===== Overlays: menu / journal / note / codepad / endings ===== */
+  .overlay{
+    position:fixed;inset:0;z-index:100;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(5,6,4,0.92);
+    cursor:default;
+    opacity:0;pointer-events:none;
+    transition:opacity .4s ease;
+  }
+  .overlay.active{opacity:1;pointer-events:all;}
+
+  .panel{
+    width:min(560px,88vw);
+    background:linear-gradient(180deg,#16201a,#10160f);
+    border:1px solid var(--mustard);
+    box-shadow:0 0 40px rgba(0,0,0,0.8), inset 0 0 60px rgba(0,0,0,0.5);
+    padding:32px;
+    position:relative;
+  }
+  .panel::before{
+    content:'';position:absolute;inset:6px;
+    border:1px solid rgba(199,162,60,0.25);
+    pointer-events:none;
+  }
+  .panel h1{
+    font-family:Georgia, serif;
+    color:var(--mustard-bright);
+    font-size:30px;letter-spacing:4px;text-transform:uppercase;
+    text-align:center;margin-bottom:6px;
+    text-shadow:0 0 12px rgba(232,193,85,0.4);
+  }
+  .panel h2{
+    color:var(--mustard);
+    font-size:13px;letter-spacing:3px;text-transform:uppercase;
+    text-align:center;margin-bottom:24px;font-weight:normal;
+    opacity:0.8;
+  }
+  .panel p.flavor{
+    color:var(--paper);font-size:13px;line-height:1.9;
+    margin-bottom:22px;opacity:0.85;
+  }
+  .btn{
+    display:block;width:100%;
+    background:rgba(199,162,60,0.08);
+    border:1px solid var(--mustard);
+    color:var(--mustard-bright);
+    padding:14px;margin-top:12px;
+    font-family:'Courier New',monospace;
+    font-size:13px;letter-spacing:3px;text-transform:uppercase;
+    cursor:pointer;transition:all .2s ease;
+  }
+  .btn:hover{background:rgba(199,162,60,0.22);box-shadow:0 0 14px rgba(199,162,60,0.3);}
+  .btn.danger{border-color:var(--blood-bright);color:#e88;}
+  .btn.danger:hover{background:rgba(140,20,20,0.2);}
+
+  #noteOverlay .panel{
+    background:
+      repeating-linear-gradient(var(--paper) 0px, var(--paper) 27px, #cabf95 28px),
+      var(--paper);
+    color:var(--ink);
+    font-family:Georgia, serif;
+    box-shadow:0 0 50px rgba(0,0,0,0.9);
+    border:none;
+    transform:rotate(-0.6deg);
+  }
+  #noteOverlay .panel::before{display:none;}
+  #noteOverlay h1{color:var(--ink);text-shadow:none;font-size:20px;letter-spacing:1px;text-align:left;}
+  #noteOverlay h2{display:none;}
+  #noteTitle{font-size:11px;color:#6a5a2a;letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;}
+  #noteBody{color:var(--ink);font-size:16px;line-height:28px;white-space:pre-wrap;min-height:60px;}
+  #noteClose{
+    margin-top:24px;background:transparent;border:1px solid var(--ink);
+    color:var(--ink);padding:10px;width:100%;cursor:pointer;
+    font-family:Georgia,serif;letter-spacing:2px;text-transform:uppercase;font-size:12px;
+  }
+  #noteClose:hover{background:rgba(0,0,0,0.08);}
+
+  /* keypad */
+  #keypadOverlay .panel{width:min(380px,86vw);}
+  #keypadDisplay{
+    background:#0a0d09;border:1px solid var(--mustard);
+    color:var(--mustard-bright);font-size:26px;letter-spacing:7px;
+    text-align:center;padding:14px 4px;margin-bottom:18px;
+    font-family:'Courier New',monospace;
+    min-height:54px;
+    white-space:nowrap;overflow:hidden;
+  }
+  #keypadDisplay.err{color:#e85a5a;animation:shake .3s;}
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-6px);}
+    75%{transform:translateX(6px);}
+  }
+  #keypadGrid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  }
+  .kp-btn{
+    background:rgba(199,162,60,0.08);border:1px solid var(--mustard-faded,#6b5a2a);
+    color:var(--paper);font-size:20px;padding:16px 0;cursor:pointer;
+    font-family:'Courier New',monospace;
+  }
+  .kp-btn:hover{background:rgba(199,162,60,0.2);}
+  .kp-btn.wide{grid-column:span 1;}
+  #keypadHint{
+    margin-top:14px;color:var(--green-faded);font-size:11px;text-align:center;
+    letter-spacing:1px;
+  }
+  #keypadCancel{margin-top:10px;}
+
+  /* loading */
+  #loadingScreen{
+    position:fixed;inset:0;z-index:90;background:#000;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--mustard-bright);font-family:'Courier New',monospace;
+    letter-spacing:3px;
+  }
+  #loadingBarWrap{width:280px;height:4px;background:#222;margin-top:18px;}
+  #loadingBar{height:100%;width:0%;background:var(--mustard-bright);transition:width .2s ease;}
+
+  .blink{animation:blinker 1.4s step-start infinite;}
+  @keyframes blinker{50%{opacity:0;}}
+
+  #mobileControls{display:none;}
+  @media (pointer:coarse){
+    #mobileControls{
+      display:block;position:fixed;inset:0;z-index:45;pointer-events:none;
+    }
+    #joyZone{
+      position:absolute;left:24px;bottom:24px;width:130px;height:130px;
+      border:1px solid rgba(232,193,85,0.4);border-radius:50%;
+      pointer-events:all;
+    }
+    #joyKnob{
+      position:absolute;left:45px;top:45px;width:40px;height:40px;
+      background:rgba(232,193,85,0.3);border:1px solid var(--mustard-bright);
+      border-radius:50%;
+    }
+    #mobileInteract{
+      position:absolute;right:30px;bottom:40px;width:74px;height:74px;
+      border-radius:50%;border:1px solid var(--mustard-bright);
+      background:rgba(199,162,60,0.15);color:var(--mustard-bright);
+      pointer-events:all;font-size:11px;letter-spacing:1px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="vignette"></div>
+<div id="grain"></div>
+<div id="flashOverlay"></div>
+<div id="crosshair"></div>
+
+<div id="hud">
+  <div id="topLeftHud">
+    <div id="clueCounter">เบาะแส: <span id="clueCount">0</span> / <span id="clueTotal">5</span></div>
+  </div>
+  <div id="sanityBarWrap">
+    <div id="sanityLabel">สภาพจิต</div>
+    <div id="sanityBar"><div id="sanityFill"></div></div>
+  </div>
+  <div id="interactPrompt"><span class="key">E</span><span id="interactText">หยิบ</span></div>
+  <div id="subtitle"></div>
+</div>
+
+<!-- mobile -->
+<div id="mobileControls">
+  <div id="joyZone"><div id="joyKnob"></div></div>
+  <button id="mobileInteract">ใช้</button>
+</div>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div style="font-size:18px;">กำลังเข้าสู่โรงเรียน<span class="blink">...</span></div>
+  <div id="loadingBarWrap"><div id="loadingBar"></div></div>
+</div>
+
+<!-- Main Menu -->
+<div class="overlay active" id="menuOverlay">
+  <div class="panel">
+    <h1>โรงเรียนร้าง</h1>
+    <h2>ปริศนาแห่งความเงียบ</h2>
+    <p class="flavor">
+      ปี 2541 โรงเรียนมัธยมแห่งนี้ถูกปิดตายหลังเหตุการณ์ในคืนสอบปลายภาค
+      ไม่มีใครกลับออกมาครบจำนวน... คุณเป็นนักข่าวที่เดินทางเข้ามาตามหาความจริง
+      แต่ประตูทางออกถูกล็อกด้วยรหัสที่ไม่มีใครรู้ — มีเพียงเบาะแสที่กระจัดกระจาย
+      อยู่ในห้องต่างๆ เท่านั้นที่จะนำทางคุณออกไปได้
+      <br><br>
+      <em style="opacity:0.7">ใช้ WASD เดิน, เมาส์มอง, E เพื่อหยิบ/ใช้, Shift วิ่ง, คลิกเพื่อเริ่ม</em>
+    </p>
+    <button class="btn" id="startBtn">เข้าสู่โรงเรียน</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div class="overlay" id="pauseOverlay">
+  <div class="panel">
+    <h1>หยุดชั่วคราว</h1>
+    <h2>โรงเรียนยังรอคุณอยู่</h2>
+    <button class="btn" id="resumeBtn">เดินต่อ</button>
+    <button class="btn danger" id="restartBtn">เริ่มใหม่</button>
+  </div>
+</div>
+
+<!-- Note reading -->
+<div class="overlay" id="noteOverlay">
+  <div class="panel">
+    <div id="noteTitle">เอกสารที่พบ</div>
+    <h1 id="noteHeading"></h1>
+    <div id="noteBody"></div>
+    <button id="noteClose">ปิด [E / ESC]</button>
+  </div>
+</div>
+
+<!-- Keypad -->
+<div class="overlay" id="keypadOverlay">
+  <div class="panel">
+    <h1 id="keypadTitle">ประตูล็อก</h1>
+    <h2>กรอกรหัส 5 หลัก</h2>
+    <div id="keypadDisplay">____</div>
+    <div id="keypadGrid"></div>
+    <div id="keypadHint">เบาะแสอยู่ในห้องต่างๆ ของโรงเรียน</div>
+    <button class="btn danger" id="keypadCancel">ปิด [ESC]</button>
+  </div>
+</div>
+
+<!-- Ending -->
+<div class="overlay" id="endOverlay">
+  <div class="panel">
+    <h1><span id="endTitle">รอด</span></h1>
+    <h2 id="endSubtitle"></h2>
+    <p class="flavor" id="endFlavor"></p>
+    <button class="btn" id="playAgainBtn">เล่นอีกครั้ง</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   โรงเรียนร้าง: ปริศนาแห่งความเงียบ
+   First-person horror exploration game
+   ============================================================ */
+
+(function(){
+'use strict';
+
+// ---------- Core setup ----------
+const canvas = document.getElementById('gameCanvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060a);
+scene.fog = new THREE.FogExp2(0x05060a, 0.055);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 200);
+camera.position.set(0, 1.7, 8);
+
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- Lighting ----------
+const ambient = new THREE.AmbientLight(0x2a3328, 0.55);
+scene.add(ambient);
+const hemi = new THREE.HemisphereLight(0x33402e, 0x0a0a08, 0.3);
+scene.add(hemi);
+
+// Flashlight attached to camera
+const flashlight = new THREE.SpotLight(0xfff1c9, 1.6, 16, Math.PI/6.2, 0.45, 1.6);
+flashlight.castShadow = true;
+flashlight.shadow.mapSize.set(1024,1024);
+flashlight.shadow.bias = -0.001;
+camera.add(flashlight);
+flashlight.position.set(0,0,0);
+flashlight.target.position.set(0,0,-1);
+camera.add(flashlight.target);
+scene.add(camera);
+
+// ---------- Materials ----------
+const texLoader = new THREE.TextureLoader();
+function makeProceduralWallTexture(){
+  const c = document.createElement('canvas'); c.width=256; c.height=256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#23332a'; ctx.fillRect(0,0,256,256);
+  // tile lower band
+  ctx.fillStyle = '#1c2922';
+  ctx.fillRect(0,170,256,86);
+  for(let i=0;i<256;i+=16){
+    ctx.strokeStyle='rgba(0,0,0,0.25)';
+    ctx.beginPath();ctx.moveTo(0,170);ctx.stroke();
+  }
+  // grime streaks
+  for(let i=0;i<40;i++){
+    ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.15})`;
+    const x=Math.random()*256, y=Math.random()*170, w=Math.random()*3+1, h=Math.random()*90+20;
+    ctx.fillRect(x,y,w,h);
+  }
+  // mustard stripe
+  ctx.fillStyle = '#7a6328';
+  ctx.fillRect(0,150,256,6);
+  return new THREE.CanvasTexture(c);
+}
+function makeFloorTexture(){
+  const c = document.createElement('canvas'); c.width=256;c.height=256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#3a3326'; ctx.fillRect(0,0,256,256);
+  const tile=32;
+  for(let y=0;y<256;y+=tile){
+    for(let x=0;x<256;x+=tile){
+      const shade = ( (x/tile+y/tile)%2===0)?'#3d3628':'#352e22';
+      ctx.fillStyle=shade; ctx.fillRect(x,y,tile,tile);
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.strokeRect(x,y,tile,tile);
+    }
+  }
+  for(let i=0;i<60;i++){
+    ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.1})`;
+    ctx.fillRect(Math.random()*256,Math.random()*256,Math.random()*20,Math.random()*2);
+  }
+  return new THREE.CanvasTexture(c);
+}
+function makeCeilingTexture(){
+  const c = document.createElement('canvas'); c.width=128;c.height=128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#16201a'; ctx.fillRect(0,0,128,128);
+  for(let y=0;y<128;y+=32){for(let x=0;x<128;x+=32){
+    ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.strokeRect(x,y,32,32);
+  }}
+  return new THREE.CanvasTexture(c);
+}
+
+const wallTex = makeProceduralWallTexture(); wallTex.wrapS=wallTex.wrapT=THREE.RepeatWrapping;
+const floorTex = makeFloorTexture(); floorTex.wrapS=floorTex.wrapT=THREE.RepeatWrapping;
+const ceilTex = makeCeilingTexture(); ceilTex.wrapS=ceilTex.wrapT=THREE.RepeatWrapping;
+
+const wallMat = new THREE.MeshStandardMaterial({map:wallTex, roughness:0.95, metalness:0.0});
+const floorMat = new THREE.MeshStandardMaterial({map:floorTex, roughness:0.9});
+const ceilMat = new THREE.MeshStandardMaterial({map:ceilTex, roughness:1.0});
+const doorMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.8});
+const deskMat = new THREE.MeshStandardMaterial({color:0x4a3a26, roughness:0.85});
+const metalMat = new THREE.MeshStandardMaterial({color:0x555555, roughness:0.4, metalness:0.6});
+const glassMat = new THREE.MeshStandardMaterial({color:0x88aabb, roughness:0.1, metalness:0.1, transparent:true, opacity:0.25});
+
+// ---------- Level geometry helpers ----------
+const colliders = []; // {min:{x,z}, max:{x,z}}
+const levelGroup = new THREE.Group();
+scene.add(levelGroup);
+
+function addBoxCollider(x,z,w,d){
+  colliders.push({minX:x-w/2, maxX:x+w/2, minZ:z-d/2, maxZ:z+d/2});
+}
+
+function wallSegment(x,y,z, w,h,d, rotY=0){
+  const geo = new THREE.BoxGeometry(w,h,d);
+  const mesh = new THREE.Mesh(geo, wallMat);
+  mesh.position.set(x,y,z);
+  mesh.rotation.y = rotY;
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  levelGroup.add(mesh);
+  if(Math.abs(rotY % Math.PI) < 0.01){
+    addBoxCollider(x,z,w,d);
+  } else {
+    addBoxCollider(x,z,d,w);
+  }
+  return mesh;
+}
+
+function floorPanel(x,z,w,d,y=0){
+  const geo = new THREE.PlaneGeometry(w,d);
+  const mesh = new THREE.Mesh(geo, floorMat);
+  mesh.rotation.x = -Math.PI/2;
+  mesh.position.set(x,y,z);
+  mesh.receiveShadow = true;
+  levelGroup.add(mesh);
+  const tex = floorTex.clone(); tex.needsUpdate = true;
+  tex.repeat.set(w/2, d/2);
+  mesh.material = new THREE.MeshStandardMaterial({map:tex, roughness:0.9});
+  return mesh;
+}
+function ceilPanel(x,z,w,d,y=3){
+  const geo = new THREE.PlaneGeometry(w,d);
+  const mesh = new THREE.Mesh(geo, ceilMat);
+  mesh.rotation.x = Math.PI/2;
+  mesh.position.set(x,y,z);
+  mesh.receiveShadow = true;
+  levelGroup.add(mesh);
+}
+
+// ---------- Pickable / interactable registry ----------
+const interactables = []; 
+
+// ---------- Game State ----------
+const state = {
+  running:false,
+  paused:false,
+  clues:0,
+  cluesNeeded:5,
+  cluesFound:{}, 
+  sanity:100,
+  codeDigits:['_','_','_','_','_'],
+  codeEntry:'',
+  doorCode:'', 
+  finalDoorOpen:false,
+  ghostEncounters:0,
+  lastScareTime:-999,
+  flashlightOn:true,
+  keys:{w:false,a:false,s:false,d:false,shift:false},
+  velocity:new THREE.Vector3(),
+  yaw:0,
+  pitch:0,
+  pointerLocked:false,
+  near:null, 
+  noteOpen:false,
+  keypadOpen:false,
+  collectedKeyItem:false, 
+  jumpscareActive:false,
+  isMobile: false
+};
+
+// เช็คอุปกรณ์พกพา
+if(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window)) {
+  state.isMobile = true;
+}
+
+const clueDefinitions = [
+  {id:'locker',   digit:'7', room:'ห้องล็อกเกอร์', order:1,
+   title:'กระดาษยับในล็อกเกอร์ 113',
+   text:'"...คืนนั้นครูบอกให้พวกเราจำเลข 7 ไว้ มันคือหลักแรกของอะไรบางอย่าง ห้ามลืมเด็ดขาด..."\n\n— ลายมือนักเรียน ไม่ทราบชื่อ'},
+  {id:'classroom',digit:'4', room:'ห้องเรียน 2/3', order:2,
+   title:'กระดานดำที่ยังไม่ได้ลบ',
+   text:'มีเลข "4" ถูกวงกลมไว้กลางกระดาน ใต้คำว่า\n"หลักที่สอง — อย่าเข้าห้องน้ำชั้นบนคนเดียว"'},
+  {id:'library',  digit:'1', room:'ห้องสมุด', order:3,
+   title:'หนังสือที่เปิดค้างไว้',
+   text:'หน้ากระดาษมีรอยขีดเป็นเลข "1" วนซ้ำเต็มหน้า\nด้านล่างเขียนว่า "หลักที่สาม คือจำนวนคนที่เดินออกไปไม่ได้"'},
+  {id:'lab',      digit:'9', room:'ห้องปฏิบัติการ', order:4,
+   title:'สมุดบันทึกการทดลอง',
+   text:'"...ทดลองครั้งที่ 9 ล้มเหลวอีกครั้ง หลักที่สี่ของรหัสคือเลขนี้\nถ้าใครอ่านเจอ ออกไปจากที่นี่เถอะ ก่อนที่มันจะมาอีกครั้ง..."'},
+  {id:'office',   digit:'2', room:'ห้องผู้อำนวยการ', order:5,
+   title:'จดหมายลาออกที่ไม่ได้ส่ง',
+   text:'"...หลักสุดท้ายคือ 2 — สองคนที่หายไปในคืนนั้นยังไม่ถูกพบตัว\nผมขอโทษที่ปิดบังเรื่องนี้มาตลอด — ผอ.สมชาย"'},
+];
+state.doorCode = clueDefinitions.slice().sort((a,b)=>a.order-b.order).map(c=>c.digit).join('');
+
+// ============================================================
+// LEVEL LAYOUT
+// ============================================================
+const CORRIDOR_WIDTH = 4;
+const WALL_H = 3.2;
+
+function buildCorridorSection(zCenter, length, withCeil=true){
+  floorPanel(0, zCenter, CORRIDOR_WIDTH, length);
+  if(withCeil) ceilPanel(0, zCenter, CORRIDOR_WIDTH, length, WALL_H);
+}
+
+// --- Entrance hall ---
+buildCorridorSection(11, 8);
+wallSegment(-CORRIDOR_WIDTH/2, WALL_H/2, 11, 0.2, WALL_H, 8);
+wallSegment(CORRIDOR_WIDTH/2, WALL_H/2, 11, 0.2, WALL_H, 8);
+wallSegment(0, WALL_H/2, 15.1, CORRIDOR_WIDTH, WALL_H, 0.2); // ขยับกำแพงหลังออกไปเล็กน้อยกันติดจุดเกิด
+
+// --- Main corridor ---
+buildCorridorSection(2.5, 13);
+wallSegment(-CORRIDOR_WIDTH/2, WALL_H/2, 7, 0.2, WALL_H, 2); 
+wallSegment(CORRIDOR_WIDTH/2, WALL_H/2, 7, 0.2, WALL_H, 2);
+
+function buildRoom({side, corridorZ, roomDepth=6, roomWidth=7, doorWidth=1.6, doorZHeight=2.3, label}){
+  const sign = side==='left' ? -1 : 1;
+  const corridorWallX = sign * CORRIDOR_WIDTH/2;
+  const roomCenterX = corridorWallX + sign * roomWidth/2;
+  const roomCenterZ = corridorZ;
+
+  floorPanel(roomCenterX, roomCenterZ, roomWidth, roomDepth);
+  ceilPanel(roomCenterX, roomCenterZ, roomWidth, roomDepth, WALL_H);
+
+  wallSegment(corridorWallX + sign*roomWidth, WALL_H/2, roomCenterZ, 0.2, WALL_H, roomDepth);
+  wallSegment(roomCenterX, WALL_H/2, corridorZ - roomDepth/2, roomWidth, WALL_H, 0.2);
+  wallSegment(roomCenterX, WALL_H/2, corridorZ + roomDepth/2, roomWidth, WALL_H, 0.2);
+
+  const gapHalf = doorWidth/2;
+  const wallSpan = roomDepth;
+  const seg1Len = (wallSpan/2 - gapHalf);
+  if(seg1Len > 0.05){
+    wallSegment(corridorWallX, WALL_H/2, corridorZ - wallSpan/2 + seg1Len/2, 0.2, WALL_H, seg1Len);
+  }
+  if(seg1Len > 0.05){
+    wallSegment(corridorWallX, WALL_H/2, corridorZ + wallSpan/2 - seg1Len/2, 0.2, WALL_H, seg1Len);
+  }
+  wallSegment(corridorWallX, WALL_H-0.35, corridorZ, 0.2, 0.7, doorWidth);
+
+  const frameMat = new THREE.MeshStandardMaterial({color:0x2a2015, roughness:0.8});
+  const frameGeo = new THREE.BoxGeometry(0.15, doorZHeight, doorWidth+0.3);
+  const frame = new THREE.Mesh(frameGeo, frameMat);
+  frame.position.set(corridorWallX, doorZHeight/2, corridorZ);
+  levelGroup.add(frame);
+
+  addSign(corridorWallX - sign*0.15, 2.4, corridorZ, label, sign);
+
+  return {centerX:roomCenterX, centerZ:roomCenterZ, width:roomWidth, depth:roomDepth, corridorWallX, side};
+}
+
+function makeTextSprite(text, {bg='#1c2b22', fg='#e8c155', w=256,h=64, fontSize=28, border='#c7a23c'}={}){
+  const c = document.createElement('canvas'); c.width=w;c.height=h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=border; ctx.lineWidth=4; ctx.strokeRect(2,2,w-4,h-4);
+  ctx.fillStyle=fg;
+  ctx.font = `bold ${fontSize}px Arial`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, w/2, h/2);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({map:tex});
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(w/130, h/130, 1);
+  return sprite;
+}
+
+function addSign(x,y,z,text,sign){
+  const sprite = makeTextSprite(text,{w:300,h:70,fontSize:26});
+  sprite.position.set(x, y, z);
+  sprite.rotation.y = sign>0 ? -Math.PI/2 : Math.PI/2;
+  levelGroup.add(sprite);
+}
+
+const rooms = {};
+rooms.locker    = buildRoom({side:'left',  corridorZ: 5,  label:'ห้องล็อกเกอร์'});
+rooms.classroom = buildRoom({side:'right', corridorZ: 5,  label:'ห้องเรียน 2/3'});
+rooms.library   = buildRoom({side:'left',  corridorZ: -1, label:'ห้องสมุด'});
+rooms.lab       = buildRoom({side:'right', corridorZ: -1, label:'ห้องปฏิบัติการ'});
+
+buildCorridorSection(-6, 10);
+rooms.office    = buildRoom({side:'left', corridorZ:-10, roomDepth:7, label:'ห้องผู้อำนวยการ'});
+
+buildCorridorSection(-15, 8);
+wallSegment(-CORRIDOR_WIDTH/2, WALL_H/2, -13.5, 0.2, WALL_H, 5);
+wallSegment(CORRIDOR_WIDTH/2, WALL_H/2, -13.5, 0.2, WALL_H, 5);
+
+buildCorridorSection(-20, 3);
+wallSegment(-CORRIDOR_WIDTH/2, WALL_H/2, -19.3, 0.2, WALL_H, 2.6);
+wallSegment(CORRIDOR_WIDTH/2, WALL_H/2, -19.3, 0.2, WALL_H, 2.6);
+wallSegment(0, WALL_H/2, -21.5, CORRIDOR_WIDTH, WALL_H, 0.2); 
+
+// Final door mesh
+const finalDoorGroup = new THREE.Group();
+const finalDoorMat = new THREE.MeshStandardMaterial({color:0x2e2014, roughness:0.7, metalness:0.1});
+const finalDoorMesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.6, 0.15), finalDoorMat);
+finalDoorMesh.position.set(0, 1.3, -21.4);
+finalDoorGroup.add(finalDoorMesh);
+const keypadMat = new THREE.MeshStandardMaterial({color:0x111111, roughness:0.3, metalness:0.7});
+const keypadMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.05), keypadMat);
+keypadMesh.position.set(0.6, 1.3, -21.32);
+finalDoorGroup.add(keypadMesh);
+const keypadLight = new THREE.PointLight(0xff3333, 0.6, 1.5);
+keypadLight.position.set(0.6,1.3,-21.2);
+finalDoorGroup.add(keypadLight);
+levelGroup.add(finalDoorGroup);
+addSign(0, 2.4, -21.0, 'ทางออก', 1);
+
+interactables.push({
+  mesh: keypadMesh, type:'finalDoor', range:2.2,
+  promptText:'เปิดประตู [E]',
+});
+
+function addBox(parent, x,y,z, w,h,d, mat){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z); m.castShadow=true; m.receiveShadow=true;
+  parent.add(m);
+  return m;
+}
+
+// Decorate Rooms
+(function(){
+  const r = rooms.locker;
+  for(let i=0; i<4; i++){
+    const lx = r.centerX - r.width/2 + 0.6 + i*1.1;
+    addBox(levelGroup, lx, 0.9, r.centerZ - r.depth/2 + 0.4, 0.9, 1.8, 0.5, metalMat);
+  }
+  const clueLockerMat = new THREE.MeshStandardMaterial({color:0x445544, roughness:0.5, metalness:0.5, emissive:0x332200, emissiveIntensity:0.15});
+  const clueLocker = addBox(levelGroup, r.centerX+1, 0.9, r.centerZ + r.depth/2 - 0.4, 0.9,1.8,0.5, clueLockerMat);
+  addClueItem('locker', clueLocker.position.x, 1.0, clueLocker.position.z+0.3, rooms.locker);
+})();
+
+(function(){
+  const r = rooms.classroom;
+  for(let row=0; row<2; row++){
+    for(let col=0; col<3; col++){
+      const dx = r.centerX - 2 + col*1.6;
+      const dz = r.centerZ - 1.5 + row*1.6;
+      addBox(levelGroup, dx, 0.45, dz, 0.9,0.05,0.6, deskMat);
+      addBox(levelGroup, dx, 0.22, dz, 0.06,0.45,0.06, deskMat);
+    }
+  }
+  const board = addBox(levelGroup, r.centerX, 1.6, r.centerZ + r.depth/2 - 0.15, 2.4, 1.1, 0.05, new THREE.MeshStandardMaterial({color:0x0e1f14}));
+  addClueItem('classroom', board.position.x, 1.6, board.position.z+0.1, rooms.classroom, true);
+})();
+
+(function(){
+  const r = rooms.library;
+  const shelfMat = new THREE.MeshStandardMaterial({color:0x3a2c1a, roughness:0.8});
+  for(let i=0; i<3; i++){
+    const sx = r.centerX - r.width/2 + 0.6;
+    const sz = r.centerZ - r.depth/2 + 1 + i*1.8;
+    addBox(levelGroup, sx, 1.1, sz, 0.4, 2.2, 1.4, shelfMat);
+  }
+  const deskClue = addBox(levelGroup, r.centerX+0.5, 0.5, r.centerZ + r.depth/2 - 0.8, 1.2,0.08,0.7, deskMat);
+  addClueItem('library', deskClue.position.x, 0.55, deskClue.position.z, rooms.library);
+})();
+
+(function(){
+  const r = rooms.lab;
+  const tableMat = new THREE.MeshStandardMaterial({color:0x444a44, roughness:0.6});
+  addBox(levelGroup, r.centerX, 0.5, r.centerZ, r.width-1.5, 0.08, 1.0, tableMat);
+  for(let i=0; i<3; i++){
+    const bx = r.centerX - 1.6 + i*1.6;
+    addBox(levelGroup, bx, 0.7, r.centerZ, 0.25,0.4,0.25, glassMat);
+  }
+  const notebook = addBox(levelGroup, r.centerX-1.6, 0.56, r.centerZ+0.3, 0.3,0.04,0.22, new THREE.MeshStandardMaterial({color:0xcfc28a}));
+  addClueItem('lab', notebook.position.x, notebook.position.y+0.03, notebook.position.z, rooms.lab);
+})();
+
+(function(){
+  const r = rooms.office;
+  addBox(levelGroup, r.centerX, 0.5, r.centerZ, 1.6,0.08,0.8, deskMat);
+  addBox(levelGroup, r.centerX, 0.6, r.centerZ+0.5, 0.5,0.6,0.4, new THREE.MeshStandardMaterial({color:0x2a2a2a}));
+  const letter = addBox(levelGroup, r.centerX+0.3, 0.56, r.centerZ-0.1, 0.25,0.02,0.18, new THREE.MeshStandardMaterial({color:0xe8dfc0}));
+  addClueItem('office', letter.position.x, letter.position.y+0.02, letter.position.z, rooms.office);
+})();
+
+const clueGlowPulse = [];
+function addClueItem(id, x, y, z, room, isBoard=false){
+  const def = clueDefinitions.find(c=>c.id===id);
+  const glowMat = new THREE.MeshStandardMaterial({
+    color:0xe8c155, emissive:0xe8c155, emissiveIntensity:0.6, roughness:0.4
+  });
+  const geo = isBoard ? new THREE.SphereGeometry(0.08,8,8) : new THREE.SphereGeometry(0.07,8,8);
+  const marker = new THREE.Mesh(geo, glowMat);
+  marker.position.set(x, y+0.15, z);
+  levelGroup.add(marker);
+  const light = new THREE.PointLight(0xe8c155, 0.7, 2.2);
+  light.position.copy(marker.position);
+  levelGroup.add(light);
+  clueGlowPulse.push(marker);
+
+  interactables.push({
+    mesh:marker, type:'clue', range:1.8, clueId:id,
+    promptText:`อ่าน\${def.title.length>14? 'เอกสาร':''} [E]`,
+  });
+}
+
+const flickerLights = [];
+function addCeilingLamp(x,z, flicker=false){
+  const lamp = new THREE.PointLight(0xfff0c8, flicker?0.9:1.1, 7, 1.8);
+  lamp.position.set(x, WALL_H-0.2, z);
+  scene.add(lamp);
+  const bulbGeo = new THREE.SphereGeometry(0.08,8,8);
+  const bulbMat = new THREE.MeshStandardMaterial({color:0xfff0c8, emissive:0xfff0c8, emissiveIntensity:1});
+  const bulb = new THREE.Mesh(bulbGeo,bulbMat);
+  bulb.position.copy(lamp.position);
+  scene.add(bulb);
+  if(flicker) flickerLights.push(lamp);
+}
+addCeilingLamp(0, 10);
+addCeilingLamp(0, 2.5, true);
+addCeilingLamp(0, -3, true);
+addCeilingLamp(0, -9, false);
+addCeilingLamp(0, -15, true);
+addCeilingLamp(0, -19.5, false);
+
+// ---------- Player controller ----------
+const player = {
+  pos: new THREE.Vector3(0, 1.7, 11),
+  height:1.7,
+  radius:0.35,
+  speedWalk:3.0,
+  speedRun:5.2,
+};
+camera.position.copy(player.pos);
+
+function tryMove(dx,dz){
+  const newX = player.pos.x + dx;
+  const newZ = player.pos.z + dz;
+  let blockedX=false, blockedZ=false;
+  for(const c of colliders){
+    if(newX+player.radius>c.minX && newX-player.radius<c.maxX && player.pos.z+player.radius>c.minZ && player.pos.z-player.radius<c.maxZ){
+      blockedX=true;
+    }
+  }
+  for(const c of colliders){
+    if(player.pos.x+player.radius>c.minX && player.pos.x-player.radius<c.maxX && newZ+player.radius>c.minZ && newZ-player.radius<c.maxZ){
+      blockedZ=true;
+    }
+  }
+  if(!blockedX) player.pos.x = newX;
+  if(!blockedZ) player.pos.z = newZ;
+}
+
+// ---------- Input ----------
+const keyMap = {KeyW:'w',KeyA:'a',KeyS:'s',KeyD:'d',ShiftLeft:'shift',ShiftRight:'shift'};
+window.addEventListener('keydown', (e)=>{
+  if(keyMap[e.code]) state.keys[keyMap[e.code]] = true;
+  if(e.code === 'KeyE') handleInteract();
+  if(e.code === 'Escape'){
+    if(state.noteOpen) closeNote();
+    else if(state.keypadOpen) closeKeypad();
+    else if(state.running) togglePause();
+  }
+  if(e.code === 'KeyF') toggleFlashlight();
+});
+window.addEventListener('keyup', (e)=>{
+  if(keyMap[e.code]) state.keys[keyMap[e.code]] = false;
+});
+
+canvas.addEventListener('click', ()=>{
+  if(state.running && !state.paused && !state.noteOpen && !state.keypadOpen && !state.isMobile){
+    canvas.requestPointerLock();
+  }
+});
+document.addEventListener('pointerlockchange', () => {
+  state.pointerLocked = (document.pointerLockElement === canvas);
+});
+document.addEventListener('mousemove', (e)=>{
+  if(!state.pointerLocked && !state.isMobile) return;
+  const sensitivity = 0.0022;
+  state.yaw -= e.movementX * sensitivity;
+  state.pitch -= e.movementY * sensitivity;
+  state.pitch = Math.max(-1.3, Math.min(1.3, state.pitch));
+});
+
+// Mobile joystick
+let joyActive=false, joyStart={x:0,y:0}, joyVec={x:0,y:0};
+const joyZone = document.getElementById('joyZone');
+const joyKnob = document.getElementById('joyKnob');
+joyZone.addEventListener('touchstart', (e)=>{
+  joyActive=true;
+  const t = e.touches[0];
+  joyStart = {x:t.clientX, y:t.clientY};
+});
+joyZone.addEventListener('touchmove', (e)=>{
+  if(!joyActive) return;
+  const t = e.touches[0];
+  let dx = t.clientX - joyStart.x, dy = t.clientY - joyStart.y;
+  const max = 40;
+  const len = Math.hypot(dx,dy);
+  if(len>max){ dx = dx/len*max; dy = dy/len*max; }
+  joyKnob.style.left = (45+dx)+'px';
+  joyKnob.style.top = (45+dy)+'px';
+  joyVec = {x:dx/max, y:dy/max};
+});
+joyZone.addEventListener('touchend', ()=>{
+  joyActive=false; joyVec={x:0,y:0};
+  joyKnob.style.left='45px'; joyKnob.style.top='45px';
+});
+document.getElementById('mobileInteract').addEventListener('click', handleInteract);
+
+let lastTouchX=null,lastTouchY=null;
+renderer.domElement.addEventListener('touchstart', (e)=>{
+  if(e.target.closest('#mobileControls')) return;
+  const t=e.touches[0]; lastTouchX=t.clientX; lastTouchY=t.clientY;
+});
+renderer.domElement.addEventListener('touchmove', (e)=>{
+  if(e.target.closest('#mobileControls')) return;
+  if(lastTouchX===null) return;
+  const t=e.touches[0];
+  const dx=t.clientX-lastTouchX, dy=t.clientY-lastTouchY;
+  state.yaw -= dx*0.005; state.pitch -= dy*0.005;
+  state.pitch = Math.max(-1.3, Math.min(1.3, state.pitch));
+  lastTouchX=t.clientX; lastTouchY=t.clientY;
+});
+renderer.domElement.addEventListener('touchend', ()=>{lastTouchX=null;lastTouchY=null;});
+
+function toggleFlashlight(){
+  state.flashlightOn = !state.flashlightOn;
+  flashlight.intensity = state.flashlightOn ? 1.6 : 0;
+}
+
+// ---------- Interaction system ----------
+function updateNearestInteractable(){
+  let nearest = null, nearestDist = Infinity;
+  for(const it of interactables){
+    if(it.consumed) continue;
+    const d = player.pos.distanceTo(it.mesh.position);
+    if(d < it.range && d < nearestDist){
+      nearest = it; nearestDist = d;
+    }
+  }
+  state.near = nearest;
+  const prompt = document.getElementById('interactPrompt');
+  const crosshair = document.getElementById('crosshair');
+  if(nearest){
+    prompt.classList.add('show');
+    document.getElementById('interactText').textContent =
+      nearest.type==='clue' ? 'อ่านเอกสาร' :
+      nearest.type==='finalDoor' ? (allCluesFound() ? 'เปิดประตู' : 'ประตูล็อกอยู่ - กรอกรหัส') : 'ใช้งาน';
+    crosshair.classList.add('interact');
+  } else {
+    prompt.classList.remove('show');
+    crosshair.classList.remove('interact');
+  }
+}
+
+function allCluesFound(){ return state.clues >= state.cluesNeeded; }
+
+function handleInteract(){
+  if(state.noteOpen){ closeNote(); return; }
+  if(state.keypadOpen) return;
+  if(!state.near) return;
+  const it = state.near;
+  if(it.type === 'clue'){
+    openClue(it);
+  } else if(it.type === 'finalDoor'){
+    openKeypad();
+  }
+}
+
+function openClue(it){
+  if(it.consumed) return;
+  it.consumed = true;
+  const def = clueDefinitions.find(c=>c.id===it.clueId);
+  state.clues++;
+  state.cluesFound[def.id] = true;
+  document.getElementById('clueCount').textContent = state.clues;
+  it.mesh.visible = false;
+  showNote(def.title, def.text);
+  releaseMouseForUI();
+  adjustSanity(-6);
+}
+
+function showNote(title, body){
+  state.noteOpen = true;
+  document.getElementById('noteHeading').textContent = title;
+  document.getElementById('noteBody').textContent = body;
+  document.getElementById('noteOverlay').classList.add('active');
+}
+function closeNote(){
+  state.noteOpen = false;
+  document.getElementById('noteOverlay').classList.remove('active');
+  relockMouseForGame();
+}
+document.getElementById('noteClose').addEventListener('click', closeNote);
+
+function releaseMouseForUI(){
+  if(document.pointerLockElement) document.exitPointerLock();
+}
+function relockMouseForGame(){
+  if(state.running && !state.paused && !state.isMobile){
+    canvas.requestPointerLock();
+  }
+}
+
+// ---------- Keypad ----------
+function openKeypad(){
+  state.keypadOpen = true;
+  state.codeEntry = '';
+  updateKeypadDisplay();
+  document.getElementById('keypadOverlay').classList.add('active');
+  document.getElementById('keypadHint').textContent =
+    allCluesFound() ? 'คุณรวบรวมเบาะแสครบแล้ว — เรียงตามลำดับที่พบในเอกสาร' :
+    `ยังขาดเบาะแสอีก \${state.cluesNeeded-state.clues} ชิ้น`;
+  releaseMouseForUI();
+}
+function closeKeypad(){
+  state.keypadOpen = false;
+  document.getElementById('keypadOverlay').classList.remove('active');
+  relockMouseForGame();
+}
+document.getElementById('keypadCancel').addEventListener('click', closeKeypad);
+
+function updateKeypadDisplay(){
+  const disp = document.getElementById('keypadDisplay');
+  const padded = state.codeEntry.padEnd(5,'_').split('').join(' ');
+  disp.textContent = padded;
+}
+
+const keypadGrid = document.getElementById('keypadGrid');
+keypadGrid.innerHTML = ''; // เคลียร์ปุ่มเก่าป้องกันการสร้างซ้ำ
+['1','2','3','4','5','6','7','8','9','⌫','0','OK'].forEach(label=>{
+  const btn = document.createElement('button');
+  btn.className='kp-btn';
+  btn.textContent = label;
+  btn.addEventListener('click', ()=> keypadPress(label));
+  keypadGrid.appendChild(btn);
+});
+
+function keypadPress(label){
+  if(label==='⌫'){
+    state.codeEntry = state.codeEntry.slice(0,-1);
+  } else if(label==='OK'){
+    submitCode();
+    return;
+  } else {
+    if(state.codeEntry.length<5) state.codeEntry += label;
+  }
+  updateKeypadDisplay();
+}
+window.addEventListener('keydown',(e)=>{
+  if(!state.keypadOpen) return;
+  if(/^[0-9]$/.test(e.key)) keypadPress(e.key);
+  if(e.key==='Backspace') keypadPress('⌫');
+  if(e.key==='Enter') submitCode();
+});
+
+function submitCode(){
+  if(state.codeEntry.length<5){ flashKeypadError(); return; }
+  if(!allCluesFound()){
+    flashKeypadError();
+    return;
+  }
+  if(state.codeEntry === state.doorCode){
+    closeKeypad();
+    triggerEnding('escape');
+  } else {
+    flashKeypadError();
+    adjustSanity(-10);
+    triggerJumpscare(0.5);
+  }
+}
+function flashKeypadError(){
+  const disp = document.getElementById('keypadDisplay');
+  disp.classList.add('err');
+  setTimeout(()=>{disp.classList.remove('err'); state.codeEntry=''; updateKeypadDisplay();}, 350);
+}
+
+// ---------- Sanity & ghost system ----------
+function adjustSanity(delta){
+  state.sanity = Math.max(0, Math.min(100, state.sanity+delta));
+  document.getElementById('sanityFill').style.width = state.sanity+'%';
+  if(state.sanity < 40){
+    document.getElementById('sanityFill').style.background = 'linear-gradient(90deg,#3a0a0a,#8c2222)';
+  }
+  if(state.sanity <= 0){
+    triggerEnding('caught');
+  }
+}
+
+let ghostMesh = null;
+function buildGhostMesh(){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.9, transparent:true, opacity:0.92});
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.5,1.8,10), bodyMat);
+  body.position.y = 0.9;
+  g.add(body);
+  const headMat = new THREE.MeshStandardMaterial({color:0xe8dcc8, roughness:0.8});
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22,12,12), headMat);
+  head.position.y = 1.9;
+  g.add(head);
+  const eyeMat = new THREE.MeshStandardMaterial({color:0x000000, emissive:0x440000, emissiveIntensity:1});
+  const eyeGeo = new THREE.SphereGeometry(0.035,6,6);
+  const eyeL = new THREE.Mesh(eyeGeo,eyeMat); eyeL.position.set(-0.07,1.92,0.19); g.add(eyeL);
+  const eyeR = new THREE.Mesh(eyeGeo,eyeMat); eyeR.position.set(0.07,1.92,0.19); g.add(eyeR);
+  g.visible = false;
+  scene.add(g);
+  return g;
+}
+ghostMesh = buildGhostMesh();
+
+let ghostTimer = 0;
+let nextGhostEvent = 14 + Math.random()*10;
+let ghostVisibleTimer = 0;
+let ambientWhisperTimer = 8 + Math.random()*10;
+
+function maybeFlickerLights(dt){
+  for(const l of flickerLights){
+    if(Math.random()<0.01){
+      l.intensity = Math.random()<0.5 ? 0.05 : 1.1;
+    }
+  }
+}
+
+function triggerJumpscare(intensity=1){
+  state.jumpscareActive = true;
+  const flash = document.getElementById('flashOverlay');
+  flash.style.background = `rgba(140,20,20,\${0.55*intensity})`;
+  setTimeout(()=>{ flash.style.background='rgba(140,20,20,0)'; }, 140);
+  shakeTime = 0.4*intensity;
+  setTimeout(()=>{ state.jumpscareActive=false; }, 500);
+}
+
+function distantGhostEvent(){
+  const candidates = [
+    {x:0, z:player.pos.z - 8},
+    {x:rooms.library.centerX+1, z:rooms.library.centerZ},
+    {x:rooms.classroom.centerX-1, z:rooms.classroom.centerZ},
+    {x:0, z:player.pos.z - 4},
+  ];
+  const spot = candidates[Math.floor(Math.random()*candidates.length)];
+  ghostMesh.position.set(spot.x, 0, spot.z);
+  ghostMesh.lookAt(player.pos.x, 0, player.pos.z);
+  ghostMesh.visible = true;
+  ghostVisibleTimer = 1.0 + Math.random()*0.8;
+  adjustSanity(-4);
+  playStinger();
+}
+
+function closeGhostJumpscare(){
+  const dir = new THREE.Vector3(Math.sin(state.yaw), 0, Math.cos(state.yaw));
+  const spot = player.pos.clone().add(dir.clone().multiplyScalar(-1.6));
+  ghostMesh.position.set(spot.x, 0, spot.z);
+  ghostMesh.lookAt(player.pos.x, 0.2, player.pos.z);
+  ghostMesh.visible = true;
+  ghostVisibleTimer = 0.35;
+  triggerJumpscare(1);
+  adjustSanity(-14);
+}
+
+// WebAudio API 
+let audioCtx = null;
+function ensureAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+}
+function playStinger(){
+  try{
+    ensureAudio();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(180, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime+0.5);
+    g.gain.setValueAtTime(0.18, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.6);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime+0.6);
+  }catch(e){}
+}
+function playWhisper(){
+  try{
+    ensureAudio();
+    const bufferSize = audioCtx.sampleRate*0.8;
+    const buffer = audioCtx.createBuffer(1,bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<bufferSize;i++){ data[i] = (Math.random()*2-1)*0.3; }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    const filt = audioCtx.createBiquadFilter();
+    filt.type='bandpass'; filt.frequency.value=600+Math.random()*400; filt.Q.value=1.2;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime+0.1);
+    g.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime+0.8);
+    src.connect(filt); filt.connect(g); g.connect(audioCtx.destination);
+    src.start();
+  }catch(e){}
+}
+
+// ---------- Ending ----------
+function triggerEnding(type){
+  state.running = false;
+  if(document.pointerLockElement) document.exitPointerLock();
+  const overlay = document.getElementById('endOverlay');
+  const title = document.getElementById('endTitle');
+  const subtitle = document.getElementById('endSubtitle');
+  const flavor = document.getElementById('endFlavor');
+  if(type==='escape'){
+    title.textContent = 'รอดชีวิต';
+    title.style.color = 'var(--mustard-bright)';
+    subtitle.textContent = 'ประตูเปิดออกสู่ความมืดภายนอก';
+    flavor.textContent = 'คุณกรอกรหัสครบทั้ง 5 หลัก ประตูเหล็กเก่าส่งเสียงครางก่อนจะเปิดออก อากาศเย็นจากภายนอกพัดเข้ามาปะทะใบหน้า เบื้องหลังคุณ เสียงกระซิบจางหายไปพร้อมกับประตูที่ปิดสนิทอีกครั้ง... คุณกลับออกมาได้ แต่ความจริงที่พบยังคงติดตามคุณไปตลอดกาล';
+  } else {
+    title.textContent = 'สูญสิ้น';
+    title.style.color = '#e85a5a';
+    subtitle.textContent = 'ความมืดกลืนกินสติคุณจนหมดสิ้น';
+    flavor.textContent = 'สายตาคุณพร่ามัว เสียงกระซิบดังขึ้นรอบทิศทาง ก่อนทุกอย่างจะเงียบลง... โรงเรียนแห่งนี้ได้นักเรียนใหม่อีกคนแล้ว';
+  }
+  overlay.classList.add('active');
+}
+
+document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+  window.location.reload();
+});
+
+function togglePause(){
+  state.paused = !state.paused;
+  document.getElementById('pauseOverlay').classList.toggle('active', state.paused);
+  if(state.paused){
+    if(document.pointerLockElement) document.exitPointerLock();
+  } else {
+    relockMouseForGame();
+  }
+}
+document.getElementById('resumeBtn').addEventListener('click', togglePause);
+document.getElementById('restartBtn').addEventListener('click', ()=> window.location.reload());
+
+// ---------- Start Game ----------
+document.getElementById('startBtn').addEventListener('click', startGame);
+
+function startGame(){
+  document.getElementById('menuOverlay').classList.remove('active');
+  state.running = true;
+  
+  ensureAudio(); 
+  
+  if(!state.isMobile) {
+    canvas.requestPointerLock();
+  }
+}
+
+// ---------- Loading screen ----------
+let loadProgress = 0;
+let loadingDone = false;
+const loadingBar = document.getElementById('loadingBar');
+const loadingScreen = document.getElementById('loadingScreen');
+function finishLoading(){
+  if(loadingDone) return;
+  loadingDone = true;
+  if(loadingScreen && loadingScreen.parentNode){
+    loadingScreen.parentNode.removeChild(loadingScreen);
+  }
+}
+const loadInterval = setInterval(()=>{
+  loadProgress += 8 + Math.random()*14;
+  if(loadProgress>=100){
+    loadProgress=100;
+    clearInterval(loadInterval);
+    setTimeout(finishLoading, 250);
+  }
+  if(loadingBar) loadingBar.style.width = loadProgress+'%';
+}, 120);
+setTimeout(finishLoading, 3000);
+
+// ---------- Animation loop ----------
+let shakeTime = 0;
+const clock = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if(state.running && !state.paused && !state.noteOpen && !state.keypadOpen){
+    const moveX = (state.keys.d?1:0) - (state.keys.a?1:0);
+    const moveZ = (state.keys.s?1:0) - (state.keys.w?1:0);
+    let mx = moveX, mz = moveZ;
+    if(joyVec.x!==0 || joyVec.y!==0){ mx = joyVec.x; mz = joyVec.y; }
+
+    const len = Math.hypot(mx,mz);
+    if(len>0.01){
+      mx/=len; mz/=len;
+      const speed = state.keys.shift ? player.speedRun : player.speedWalk;
+      const forward = new THREE.Vector3(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
+      const right = new THREE.Vector3(Math.cos(state.yaw), 0, -Math.sin(state.yaw));
+      const move = new THREE.Vector3();
+      move.addScaledVector(forward, -mz); 
+      move.addScaledVector(right, mx);     
+      if(move.lengthSq()>0) move.normalize();
+      tryMove(move.x*speed*dt, move.z*speed*dt);
+    }
+
+    camera.position.set(player.pos.x, player.height, player.pos.z);
+    camera.rotation.order='YXZ';
+    camera.rotation.y = state.yaw;
+    camera.rotation.x = state.pitch;
+
+    if(shakeTime>0){
+      shakeTime -= dt;
+      camera.position.x += (Math.random()-0.5)*0.06;
+      camera.position.y += (Math.random()-0.5)*0.06;
+    }
+
+    updateNearestInteractable();
+    maybeFlickerLights(dt);
+
+    const t = clock.elapsedTime;
+    for(const m of clueGlowPulse){
+      if(m.visible){
+        const s = 1 + Math.sin(t*4)*0.15;
+        m.scale.setScalar(s);
+      }
+    }
+
+    ghostTimer += dt;
+    ambientWhisperTimer -= dt;
+    if(ambientWhisperTimer<=0){
+      ambientWhisperTimer = 10+Math.random()*14;
+      if(Math.random()<0.7) playWhisper();
+    }
+    if(ghostTimer > nextGhostEvent){
+      ghostTimer = 0;
+      nextGhostEvent = 16+Math.random()*14;
+      const roll = Math.random();
+      if(roll < 0.35 && state.sanity < 70){
+        closeGhostJumpscare();
+      } else {
+        distantGhostEvent();
+      }
+    }
+    if(ghostMesh.visible){
+      ghostVisibleTimer -= dt;
+      ghostMesh.position.y = Math.sin(t*2)*0.05;
+      if(ghostVisibleTimer<=0){ ghostMesh.visible=false; }
+    }
+
+    if(ghostMesh.visible){
+      const d = player.pos.distanceTo(ghostMesh.position);
+      if(d<3) adjustSanity(-0.4*dt*10);
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+})();
+</script>
+</body>
+</html>
