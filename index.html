@@ -16,7 +16,7 @@
             align-items: center;
             height: 100vh;
             overflow: hidden;
-            touch-action: none; /* ป้องกันจอเลื่อนบนมือถือ */
+            touch-action: none;
         }
         #menu-container, #game-container {
             text-align: center;
@@ -64,7 +64,6 @@
         button:hover {
             background-color: #ff6b81;
         }
-        /* แผงปุ่มสำหรับเล่นบนมือถือ */
         #mobile-controls {
             display: none;
             margin-top: 15px;
@@ -113,7 +112,6 @@
 
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
-        
         <div id="mobile-controls">
             <div>
                 <div class="dpad-row">
@@ -138,30 +136,24 @@
         let gameRunning = false;
         let isMobile = false;
 
-        // ตรวจสอบชนิดอุปกรณ์ว่าเป็นมือถือหรือไม่
         if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
             isMobile = true;
         }
 
-        // โครงสร้างกำแพงสิ่งกีดขวาง (ตามไฟล์เดิมของคุณ)
         const walls = [
             { x: 200, y: 150, w: 40, h: 200 },
             { x: 560, y: 150, w: 40, h: 200 },
             { x: 350, y: 230, w: 100, h: 40 }
         ];
 
-        // สถานะการกดปุ่มควบคุม
         const inputState = { up: false, down: false, left: false, right: false };
 
         function setupControls() {
-            // ระบบควบคุมสำหรับคอมพิวเตอร์
             window.addEventListener('keydown', e => { handleKey(e.key, true); });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
 
-            // ระบบควบคุมสำหรับมือถือ (แสดง D-Pad บนหน้าจอ)
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'flex';
-                
                 setupMobileButton('btn-up', 'up');
                 setupMobileButton('btn-down', 'down');
                 setupMobileButton('btn-left', 'left');
@@ -183,37 +175,30 @@
             btn.addEventListener('touchend', (e) => { e.preventDefault(); inputState[direction] = false; });
         }
 
-        // ฟังก์ชันวาดตัวละครขี้ก้าง (Stickman)
         function drawStickman(x, y, name, isIt, vx, vy) {
             let color = isIt ? '#ff4757' : '#ffffff';
             ctx.strokeStyle = color;
             ctx.fillStyle = color;
             ctx.lineWidth = 3;
 
-            // วาดชื่อบนหัวตัวละคร
             ctx.font = "14px Arial";
             ctx.textAlign = "center";
             ctx.fillText(name + (isIt ? " [IT]" : ""), x, y - 30);
 
-            // หัว
             ctx.beginPath();
             ctx.arc(x, y - 15, 6, 0, Math.PI * 2);
             ctx.stroke();
 
-            // ลำตัว
             ctx.beginPath();
             ctx.moveTo(x, y - 9);
             ctx.lineTo(x, y + 5);
             ctx.stroke();
 
-            // แขน
             ctx.beginPath();
             ctx.moveTo(x - 10, y - 5);
             ctx.lineTo(x + 10, y - 5);
             ctx.stroke();
 
-            // ขา (แกว่งตามทิศทางการเดิน)
-            let walkCycle = Math.sin(Date.now() * 0.015) * 6;
             ctx.beginPath();
             ctx.moveTo(x, y + 5);
             ctx.lineTo(x - 6 + (vx * 2), y + 18);
@@ -222,7 +207,6 @@
             ctx.stroke();
         }
 
-        // ฟังก์ชันวาดกำแพง
         function drawWalls() {
             ctx.fillStyle = '#555555';
             ctx.strokeStyle = '#888888';
@@ -233,7 +217,6 @@
             });
         }
 
-        // ฟังก์ชันเริ่มเกม (เชื่อมต่อ Server ออนไลน์)
         function startGame() {
             let nameInput = document.getElementById('username').value.trim();
             if (nameInput === "") nameInput = "Player_" + Math.floor(Math.random() * 900 + 100);
@@ -243,10 +226,9 @@
 
             setupControls();
 
-            // 🌐 เชื่อมต่อเข้ากับเซิร์ฟเวอร์ Render ของคุณโดยตรงเรียบร้อยแล้วครับ
+            // เชื่อมต่อเซิร์ฟเวอร์ Render ของคุณโดยตรง
             socket = io('https://tag-game-server.onrender.com'); 
 
-            // --- ระบบรับส่งข้อมูลผ่าน Socket.io ---
             socket.on('connect', () => {
                 myId = socket.id;
                 socket.emit('join_game', { name: nameInput });
@@ -283,7 +265,6 @@
             window.requestAnimationFrame(gameLoop);
         }
 
-        // อัปเดตข้อมูลการเดินของผู้เล่นฝั่งเราเอง
         function updateLocalPlayer() {
             let me = players[myId];
             if (!me) return;
@@ -297,7 +278,6 @@
             if (inputState.left) me.vx = -speed;
             if (inputState.right) me.vx = speed;
 
-            // บังคับทิศทางและจำกัดไม่ให้ออกนอกสนาม
             let radius = 12;
             me.x += me.vx;
             handleWallCollision(me, 'x', radius);
@@ -307,13 +287,11 @@
             handleWallCollision(me, 'y', radius);
             me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
 
-            // ส่งพิกัดล่าสุดไปที่หลังบ้าน
             if (socket && socket.connected) {
                 socket.emit('player_move', { x: me.x, y: me.y, vx: me.vx, vy: me.vy });
             }
         }
 
-        // ฟังก์ชันเช็คชนกำแพงแบบสไลด์เลาะตามขอบ (ถอดแบบระบบเดิมของคุณมาเป๊ะๆ)
         function handleWallCollision(playerObj, axis, radius) {
             for (let wall of walls) {
                 if (playerObj.x + radius > wall.x && playerObj.x - radius < wall.x + wall.w &&
@@ -331,7 +309,6 @@
             }
         }
 
-        // ระบบแปะตัว (เช็คฝั่งเครื่องคนที่เป็นสีแดงเพื่อความแม่นยำ)
         function checkCollisions() {
             let me = players[myId];
             if (!me || !me.isIt) return; 
@@ -347,14 +324,12 @@
             });
         }
 
-        // ลูปหลักสำหรับการวาดภาพกราฟิกบนหน้าจอ
         function gameLoop() {
             if (!gameRunning) return;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawWalls();
 
-            // แถบสถานะด้านบน
             ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
             ctx.fillRect(0, 0, canvas.width, 35);
             ctx.fillStyle = "#fff";
@@ -365,7 +340,6 @@
             updateLocalPlayer();
             checkCollisions();
 
-            // วาดผู้เล่นทุกคนที่อยู่ในเซิร์ฟเวอร์จริงในตอนนี้
             Object.keys(players).forEach(id => {
                 let p = players[id];
                 drawStickman(p.x, p.y, p.name, p.isIt, p.vx, p.vy);
