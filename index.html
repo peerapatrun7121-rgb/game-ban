@@ -13,24 +13,28 @@
         }
         #menu-container, #game-container { text-align: center; position: relative; width: 100%; max-width: 800px; }
         #game-container { display: none; }
-        canvas { background-color: #111; border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 100%; height: auto; }
+        canvas { background-color: #111; border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 100%; height: auto; display: block; margin: 0 auto; }
         .menu-box { background-color: #333; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin: 20px; }
         input[type="text"] { width: 80%; padding: 12px; margin: 20px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; }
         button { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 50%; }
         button:hover { background-color: #ff6b81; }
         
+        /* 🕹️ พื้นที่ควบคุมด้านล่าง แยกออกจากตัวเกม ไม่ทับหน้าจอ */
         #mobile-controls {
-            display: none; margin-top: 15px; justify-content: center; align-items: center;
-            user-select: none; -webkit-user-select: none;
+            display: none; justify-content: center; align-items: center; 
+            padding: 15px 0; background-color: #1a1a1a; width: 100%; margin-top: 10px; border-radius: 10px;
         }
-        .wasd-cluster { display: flex; flex-direction: column; align-items: center; }
-        .wasd-row { display: flex; justify-content: center; gap: 15px; margin: 6px 0; }
-        .btn-wasd {
-            width: 65px; height: 65px; background-color: rgba(255, 255, 255, 0.2);
-            border: 3px solid rgba(255, 255, 255, 0.6); border-radius: 12px;
-            color: white; font-size: 24px; font-weight: bold;
-            display: flex; justify-content: center; align-items: center; touch-action: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+        /* ตัวฐานจอยสติ๊ก */
+        #joystick-base {
+            width: 120px; height: 120px; background-color: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+            position: relative; touch-action: none; user-select: none; -webkit-user-select: none;
+        }
+        /* ปุ่มตรงกลางที่ไว้ลากนิ้ว */
+        #joystick-stick {
+            width: 50px; height: 50px; background-color: #ff4757;
+            border-radius: 50%; position: absolute; top: 35px; left: 35px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5); touch-action: none;
         }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -40,7 +44,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบซิงค์สมบูรณ์แบบ | เดินอิสระไร้แรงดึงและเห็นคนอื่นเคลื่อนที่นุ่มนวล</p>
+            <p>ระบบจอยสติ๊กกลมอนาล็อก | แยกพื้นที่ควบคุมไม่บังหน้าจอเกม</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -51,15 +55,8 @@
         <canvas id="gameCanvas" width="800" height="450"></canvas>
         
         <div id="mobile-controls">
-            <div class="wasd-cluster">
-                <div class="wasd-row">
-                    <div class="btn-wasd" id="btn-w">W</div>
-                </div>
-                <div class="wasd-row">
-                    <div class="btn-wasd" id="btn-a">A</div>
-                    <div class="btn-wasd" id="btn-s">S</div>
-                    <div class="btn-wasd" id="btn-d">D</div>
-                </div>
+            <div id="joystick-base">
+                <div id="joystick-stick"></div>
             </div>
         </div>
     </div>
@@ -82,18 +79,19 @@
             { x: 350, y: 230, w: 100, h: 40 }
         ];
 
+        // คีย์บอร์ดและตัวแปรจอยสติ๊ก
         const inputState = { up: false, down: false, left: false, right: false };
+        let joystickVector = { x: 0, y: 0 }; // ค่าเวกเตอร์การลากจอย (-1 ถึง 1)
 
         function setupControls() {
+            // คีย์บอร์ดคอมพิวเตอร์ตามปกติ
             window.addEventListener('keydown', e => { handleKey(e.key, true); });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
 
+            // ระบบจอยสติ๊กสำหรับมือถือ
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'flex';
-                setupMobileButton('btn-w', 'up');
-                setupMobileButton('btn-s', 'down');
-                setupMobileButton('btn-a', 'left');
-                setupMobileButton('btn-d', 'right');
+                setupJoystick();
             }
         }
 
@@ -105,11 +103,63 @@
             if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
         }
 
-        function setupMobileButton(id, direction) {
-            const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); inputState[direction] = true; btn.style.backgroundColor = "rgba(255, 71, 87, 0.8)"; });
-            btn.addEventListener('touchend', (e) => { e.preventDefault(); inputState[direction] = false; btn.style.backgroundColor = "rgba(255, 255, 255, 0.2)"; });
-            btn.addEventListener('touchcancel', (e) => { e.preventDefault(); inputState[direction] = false; btn.style.backgroundColor = "rgba(255, 255, 255, 0.2)"; });
+        // 🕹️ ฟังก์ชันคำนวณการลากจอยสติ๊กกลม
+        function setupJoystick() {
+            const base = document.getElementById('joystick-base');
+            const stick = document.getElementById('joystick-stick');
+            
+            let maxRadius = 35; // ระยะลากสูงสุดจากจุดศูนย์กลาง
+            let dragStart = null;
+
+            base.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const baseRect = base.getBoundingClientRect();
+                // หาจุดศูนย์กลางของจอย
+                dragStart = {
+                    x: baseRect.left + baseRect.width / 2,
+                    y: baseRect.top + baseRect.height / 2
+                };
+                stick.style.backgroundColor = "#ff6b81";
+            });
+
+            base.addEventListener('touchmove', (e) => {
+                if (!dragStart) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                
+                // หาค่าระยะห่างจากจุดศูนย์กลาง
+                let deltaX = touch.clientX - dragStart.x;
+                let deltaY = touch.clientY - dragStart.y;
+                let distance = Math.hypot(deltaX, deltaY);
+
+                // ล็อกไม่ให้หัวจอยหลุดออกจากวงกลมฐาน
+                if (distance > maxRadius) {
+                    deltaX = (deltaX / distance) * maxRadius;
+                    deltaY = (deltaY / distance) * maxRadius;
+                    distance = maxRadius;
+                }
+
+                // ขยับหัวจอยทาง CSS (จุดเริ่มต้นคือ top:35px, left:35px)
+                stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+                // แปลงค่าเป็นเวกเตอร์ความเร็วระว่าง -1 ถึง 1 ส่งไปให้ตัวละครเดิน
+                joystickVector.x = deltaX / maxRadius;
+                joystickVector.y = deltaY / maxRadius;
+            });
+
+            const stopJoystick = (e) => {
+                if (!dragStart) return;
+                e.preventDefault();
+                dragStart = null;
+                stick.style.transform = `translate(0px, 0px)`; // ดีดกลับตรงกลาง
+                stick.style.backgroundColor = "#ff4757";
+                joystickVector.x = 0;
+                joystickVector.y = 0;
+            };
+
+            base.addEventListener('touchend', stopJoystick);
+            base.addEventListener('touchcancel', stopJoystick);
         }
 
         function drawStickman(x, y, name, isIt, vx, vy, bombTimer, isSpectator, cooldown) {
@@ -179,7 +229,6 @@
                     players[updatedPlayer.id].isSpectator = updatedPlayer.isSpectator;
                     
                     if (updatedPlayer.id !== myId) {
-                        // อัปเดตพิกัดเป้าหมายของผู้เล่นคนอื่นเพื่อนำมาเกลี่ยเฟรมให้ลื่น
                         players[updatedPlayer.id].vx = updatedPlayer.vx;
                         players[updatedPlayer.id].vy = updatedPlayer.vy;
                         players[updatedPlayer.id].targetX = updatedPlayer.x;
@@ -211,14 +260,21 @@
             let targetVx = 0;
             let targetVy = 0;
 
-            if (inputState.up) targetVy = -baseSpeed;
-            if (inputState.down) targetVy = baseSpeed;
-            if (inputState.left) targetVx = -baseSpeed;
-            if (inputState.right) targetVx = baseSpeed;
+            if (isMobile) {
+                // 📱 ใช้ค่าความเร็วราบรื่นแบบ 360 องศาจากจอยสติ๊กอนาล็อก
+                targetVx = joystickVector.x * baseSpeed;
+                targetVy = joystickVector.y * baseSpeed;
+            } else {
+                // 💻 ใช้ปุ่มคีย์บอร์ดคอมพิวเตอร์ปกติ
+                if (inputState.up) targetVy = -baseSpeed;
+                if (inputState.down) targetVy = baseSpeed;
+                if (inputState.left) targetVx = -baseSpeed;
+                if (inputState.right) targetVx = baseSpeed;
 
-            if (targetVx !== 0 && targetVy !== 0) {
-                targetVx *= 0.7071;
-                targetVy *= 0.7071;
+                if (targetVx !== 0 && targetVy !== 0) {
+                    targetVx *= 0.7071;
+                    targetVy *= 0.7071;
+                }
             }
 
             me.vx = targetVx;
@@ -233,7 +289,6 @@
             handleWallCollision(me, 'y', radius);
             me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
 
-            // ส่งข้อมูลพิกัดตรงจากหน้าจอเราไปอัปเดตให้เซิร์ฟเวอร์กระจายออก
             if (socket && socket.connected) {
                 socket.emit('player_move_direct', {
                     x: me.x,
@@ -249,7 +304,7 @@
                 let p = players[id];
                 if (id !== myId) {
                     if (p.targetX !== undefined && p.targetY !== undefined) {
-                        p.x += (p.targetX - p.x) * 0.25; // สไลด์คนอื่นอย่างรวดเร็วและเป็นธรรมชาติ
+                        p.x += (p.targetX - p.x) * 0.25; 
                         p.y += (p.targetY - p.y) * 0.25;
                     }
                 }
