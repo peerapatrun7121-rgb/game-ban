@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>เกมวิ่งไล่จับขี้ก้างออนไลน์</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* ป้องกันจอเลื่อนบนมือถือ */
+        }
+        #menu-container, #game-container {
+            text-align: center;
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+        }
+        #game-container {
+            display: none;
+        }
+        canvas {
+            background-color: #111;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            height: auto;
+        }
+        .menu-box {
+            background-color: #333;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            margin: 20px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            margin: 20px 0;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            text-align: center;
+        }
+        button {
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 50%;
+        }
+        button:hover {
+            background-color: #ff6b81;
+        }
+        /* แผงปุ่มสำหรับเล่นบนมือถือ */
+        #mobile-controls {
+            display: none;
+            margin-top: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+        .dpad-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 8px 0;
+        }
+        .btn-control {
+            width: 65px;
+            height: 65px;
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            color: white;
+            font-size: 26px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .btn-control:active {
+            background-color: rgba(255, 71, 87, 0.6);
+            border-color: #ff4757;
+        }
+    </style>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+    <div id="menu-container">
+        <div class="menu-box">
+            <h2>เกมวิ่งไล่จับขี้ก้าง Multiplayer</h2>
+            <p>มุมมองบุคคลที่ 2 (รองรับทั้งคอมพิวเตอร์ และ มือถือ)</p>
+            <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
+            <br>
+            <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        
+        <div id="mobile-controls">
+            <div>
+                <div class="dpad-row">
+                    <div class="btn-control" id="btn-up">↑</div>
+                </div>
+                <div class="dpad-row">
+                    <div class="btn-control" id="btn-left">←</div>
+                    <div class="btn-control" id="btn-down">↓</div>
+                    <div class="btn-control" id="btn-right">→</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let socket; 
+        let myId;
+        let players = {}; 
+        let gameRunning = false;
+        let isMobile = false;
+
+        // ตรวจสอบชนิดอุปกรณ์ว่าเป็นมือถือหรือไม่
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            isMobile = true;
+        }
+
+        // โครงสร้างกำแพงสิ่งกีดขวาง (ตามไฟล์เดิมของคุณ)
+        const walls = [
+            { x: 200, y: 150, w: 40, h: 200 },
+            { x: 560, y: 150, w: 40, h: 200 },
+            { x: 350, y: 230, w: 100, h: 40 }
+        ];
+
+        // สถานะการกดปุ่มควบคุม
+        const inputState = { up: false, down: false, left: false, right: false };
+
+        function setupControls() {
+            // ระบบควบคุมสำหรับคอมพิวเตอร์
+            window.addEventListener('keydown', e => { handleKey(e.key, true); });
+            window.addEventListener('keyup', e => { handleKey(e.key, false); });
+
+            // ระบบควบคุมสำหรับมือถือ (แสดง D-Pad บนหน้าจอ)
+            if (isMobile) {
+                document.getElementById('mobile-controls').style.display = 'flex';
+                
+                setupMobileButton('btn-up', 'up');
+                setupMobileButton('btn-down', 'down');
+                setupMobileButton('btn-left', 'left');
+                setupMobileButton('btn-right', 'right');
+            }
+        }
+
+        function handleKey(key, isPressed) {
+            key = key.toLowerCase();
+            if (key === 'w' || key === 'arrowup') inputState.up = isPressed;
+            if (key === 's' || key === 'arrowdown') inputState.down = isPressed;
+            if (key === 'a' || key === 'arrowleft') inputState.left = isPressed;
+            if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
+        }
+
+        function setupMobileButton(id, direction) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); inputState[direction] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); inputState[direction] = false; });
+        }
+
+        // ฟังก์ชันวาดตัวละครขี้ก้าง (Stickman)
+        function drawStickman(x, y, name, isIt, vx, vy) {
+            let color = isIt ? '#ff4757' : '#ffffff';
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 3;
+
+            // วาดชื่อบนหัวตัวละคร
+            ctx.font = "14px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(name + (isIt ? " [IT]" : ""), x, y - 30);
+
+            // หัว
+            ctx.beginPath();
+            ctx.arc(x, y - 15, 6, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // ลำตัว
+            ctx.beginPath();
+            ctx.moveTo(x, y - 9);
+            ctx.lineTo(x, y + 5);
+            ctx.stroke();
+
+            // แขน
+            ctx.beginPath();
+            ctx.moveTo(x - 10, y - 5);
+            ctx.lineTo(x + 10, y - 5);
+            ctx.stroke();
+
+            // ขา (แกว่งตามทิศทางการเดิน)
+            let walkCycle = Math.sin(Date.now() * 0.015) * 6;
+            ctx.beginPath();
+            ctx.moveTo(x, y + 5);
+            ctx.lineTo(x - 6 + (vx * 2), y + 18);
+            ctx.moveTo(x, y + 5);
+            ctx.lineTo(x + 6 - (vx * 2), y + 18);
+            ctx.stroke();
+        }
+
+        // ฟังก์ชันวาดกำแพง
+        function drawWalls() {
+            ctx.fillStyle = '#555555';
+            ctx.strokeStyle = '#888888';
+            ctx.lineWidth = 2;
+            walls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+                ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+            });
+        }
+
+        // ฟังก์ชันเริ่มเกม (เชื่อมต่อ Server ออนไลน์)
+        function startGame() {
+            let nameInput = document.getElementById('username').value.trim();
+            if (nameInput === "") nameInput = "Player_" + Math.floor(Math.random() * 900 + 100);
+
+            document.getElementById('menu-container').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+
+            setupControls();
+
+            // 🌐 เชื่อมต่อเข้ากับเซิร์ฟเวอร์ Render ของคุณโดยตรงเรียบร้อยแล้วครับ
+            socket = io('https://tag-game-server.onrender.com'); 
+
+            // --- ระบบรับส่งข้อมูลผ่าน Socket.io ---
+            socket.on('connect', () => {
+                myId = socket.id;
+                socket.emit('join_game', { name: nameInput });
+            });
+
+            socket.on('current_players', (serverPlayers) => {
+                players = serverPlayers;
+            });
+
+            socket.on('new_player', (newPlayerData) => {
+                players[newPlayerData.id] = newPlayerData;
+            });
+
+            socket.on('player_updated', (updatedPlayer) => {
+                if (players[updatedPlayer.id]) {
+                    players[updatedPlayer.id] = updatedPlayer;
+                }
+            });
+
+            socket.on('player_disconnected', (id) => {
+                delete players[id];
+            });
+
+            socket.on('roles_updated', (data) => {
+                if(players[data.itId]) players[data.itId].isIt = false;
+                if(players[data.taggedId]) players[data.taggedId].isIt = true;
+            });
+
+            socket.on('new_it_assigned', (id) => {
+                if(players[id]) players[id].isIt = true;
+            });
+
+            gameRunning = true;
+            window.requestAnimationFrame(gameLoop);
+        }
+
+        // อัปเดตข้อมูลการเดินของผู้เล่นฝั่งเราเอง
+        function updateLocalPlayer() {
+            let me = players[myId];
+            if (!me) return;
+
+            let speed = 3.5;
+            me.vx = 0;
+            me.vy = 0;
+
+            if (inputState.up) me.vy = -speed;
+            if (inputState.down) me.vy = speed;
+            if (inputState.left) me.vx = -speed;
+            if (inputState.right) me.vx = speed;
+
+            // บังคับทิศทางและจำกัดไม่ให้ออกนอกสนาม
+            let radius = 12;
+            me.x += me.vx;
+            handleWallCollision(me, 'x', radius);
+            me.x = Math.max(radius, Math.min(canvas.width - radius, me.x));
+
+            me.y += me.vy;
+            handleWallCollision(me, 'y', radius);
+            me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
+
+            // ส่งพิกัดล่าสุดไปที่หลังบ้าน
+            if (socket && socket.connected) {
+                socket.emit('player_move', { x: me.x, y: me.y, vx: me.vx, vy: me.vy });
+            }
+        }
+
+        // ฟังก์ชันเช็คชนกำแพงแบบสไลด์เลาะตามขอบ (ถอดแบบระบบเดิมของคุณมาเป๊ะๆ)
+        function handleWallCollision(playerObj, axis, radius) {
+            for (let wall of walls) {
+                if (playerObj.x + radius > wall.x && playerObj.x - radius < wall.x + wall.w &&
+                    playerObj.y + radius > wall.y && playerObj.y - radius < wall.y + wall.h) {
+                    
+                    if (axis === 'x') {
+                        if (playerObj.vx > 0) playerObj.x = wall.x - radius;
+                        if (playerObj.vx < 0) playerObj.x = wall.x + wall.w + radius;
+                    }
+                    if (axis === 'y') {
+                        if (playerObj.vy > 0) playerObj.y = wall.y - radius;
+                        if (playerObj.vy < 0) playerObj.y = wall.y + wall.h + radius;
+                    }
+                }
+            }
+        }
+
+        // ระบบแปะตัว (เช็คฝั่งเครื่องคนที่เป็นสีแดงเพื่อความแม่นยำ)
+        function checkCollisions() {
+            let me = players[myId];
+            if (!me || !me.isIt) return; 
+
+            Object.keys(players).forEach(id => {
+                if (id === myId) return;
+                let other = players[id];
+
+                let dist = Math.hypot(me.x - other.x, me.y - other.y);
+                if (dist < 29) { 
+                    socket.emit('tag_player', { itId: myId, taggedId: id });
+                }
+            });
+        }
+
+        // ลูปหลักสำหรับการวาดภาพกราฟิกบนหน้าจอ
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawWalls();
+
+            // แถบสถานะด้านบน
+            ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+            ctx.fillRect(0, 0, canvas.width, 35);
+            ctx.fillStyle = "#fff";
+            ctx.font = "14px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("ห้องเล่นออนไลน์ 2nd Person View (คนไม่เป็น = สีขาว | คนเป็น = สีแดง)", 20, 22);
+
+            updateLocalPlayer();
+            checkCollisions();
+
+            // วาดผู้เล่นทุกคนที่อยู่ในเซิร์ฟเวอร์จริงในตอนนี้
+            Object.keys(players).forEach(id => {
+                let p = players[id];
+                drawStickman(p.x, p.y, p.name, p.isIt, p.vx, p.vy);
+            });
+
+            window.requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
