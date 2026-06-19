@@ -40,7 +40,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD | ระบบ Smooth Sync แก้ตัวละครวาร์ป</p>
+            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD | ปรับปรุงการกดเปลี่ยนทิศทางไม่ให้กระตุก</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -167,30 +167,37 @@
                 players[newPlayerData.id] = newPlayerData; 
             });
             
-            // ✨ ปรับปรุงจุดนี้: เมื่อเซิร์ฟเวอร์ส่งพิกัดมา ให้เก็บไว้เป็น "พิกัดเป้าหมาย" (target) เท่านั้น ห้ามจับวาร์ปทันที
             socket.on('player_updated', (updatedPlayer) => { 
                 if (!players[updatedPlayer.id]) {
                     players[updatedPlayer.id] = updatedPlayer;
                     players[updatedPlayer.id].targetX = updatedPlayer.x;
                     players[updatedPlayer.id].targetY = updatedPlayer.y;
                 } else {
-                    // อัปเดตสถานะทั่วไป
                     players[updatedPlayer.id].isIt = updatedPlayer.isIt;
                     players[updatedPlayer.id].bombTimer = updatedPlayer.bombTimer;
                     players[updatedPlayer.id].cooldown = updatedPlayer.cooldown;
                     players[updatedPlayer.id].isSpectator = updatedPlayer.isSpectator;
+                    
+                    // เก็บค่าความเร็วจากเซิร์ฟเวอร์มาวาดทิศทางขาขยับ
                     players[updatedPlayer.id].vx = updatedPlayer.vx;
                     players[updatedPlayer.id].vy = updatedPlayer.vy;
                     
-                    // ปักหมุดเป้าหมายที่แท้จริงจากเซิร์ฟเวอร์ไว้
+                    // ปักหมุดพิกัดจากเซิร์ฟเวอร์ไว้
                     players[updatedPlayer.id].targetX = updatedPlayer.x;
                     players[updatedPlayer.id].targetY = updatedPlayer.y;
 
-                    // ถ้าตำแหน่งของตัวเราเองหลุดจากเซิร์ฟเวอร์มากเกินไป ค่อยดึงกลับ
+                    // ✨ แก้ไขจุดสำคัญ: สำหรับตัวเราเอง ขยายลิมิตการดึงกลับให้กว้างขึ้นเป็น 80 พิกัด
+                    // และปล่อยให้เครื่องเราเป็นคนเกลี่ยพิกัดเข้าหาเซิร์ฟเวอร์แทนการวาร์ปดื้อๆ เพื่อแก้ปัญหากระตุกตอนเปลี่ยนปุ่ม
                     if (updatedPlayer.id === myId) {
-                        if (Math.hypot(players[myId].x - updatedPlayer.x, players[myId].y - updatedPlayer.y) > 45) {
+                        let distanceError = Math.hypot(players[myId].x - updatedPlayer.x, players[myId].y - updatedPlayer.y);
+                        if (distanceError > 80) { 
+                            // ถ้าหลุดกรอบรุนแรงจริงๆ ค่อยยอมให้วาร์ป
                             players[myId].x = updatedPlayer.x;
                             players[myId].y = updatedPlayer.y;
+                        } else if (distanceError > 2) {
+                            // ถ้าคลาดเคลื่อนนิดหน่อยตอนสลับปุ่ม ให้ค่อยๆ ดึงกลับแบบนุ่มนวล (Soft Interpolation)
+                            players[myId].x += (updatedPlayer.x - players[myId].x) * 0.1;
+                            players[myId].y += (updatedPlayer.y - players[myId].y) * 0.1;
                         }
                     }
                 }
@@ -229,10 +236,10 @@
                 targetVy *= 0.7071;
             }
 
+            // ตั้งค่าความเร็วทันทีที่กดปุ่ม
             me.vx = targetVx;
             me.vy = targetVy;
 
-            // เครื่องเราคำนวณการเดินไปข้างหน้าก่อนล่วงหน้าเพื่อความสมูท
             let radius = 12;
             me.x += me.vx;
             handleWallCollision(me, 'x', radius);
@@ -252,12 +259,11 @@
             }
         }
 
-        // ✨ ระบบเกลี่ยตำแหน่งผู้เล่นคนอื่น (Interpolation) เพื่อลดอาการกระตุกและวาร์ป
         function lerpPlayers() {
             Object.keys(players).forEach(id => {
                 let p = players[id];
+                // เกลี่ยพิกัดเฉพาะผู้เล่นคนอื่นให้เคลื่อนที่นุ่มนวล
                 if (id !== myId) {
-                    // ค่อยๆ สไลด์ตัวละครคนอื่นเข้าหาตำแหน่งจริงที่เซิร์ฟเวอร์ส่งมารอบละ 15% (ทำให้นุ่มนวลขึ้นมาก)
                     if (p.targetX !== undefined && p.targetY !== undefined) {
                         p.x += (p.targetX - p.x) * 0.15;
                         p.y += (p.targetY - p.y) * 0.15;
@@ -313,7 +319,7 @@
             }
 
             updateLocalPlayer(); 
-            lerpPlayers(); // เรียกใช้งานระบบเกลี่ยพิกัดทุกๆ เฟรม
+            lerpPlayers(); 
             checkCollisions();
 
             Object.keys(players).forEach(id => {
