@@ -19,14 +19,39 @@
         button { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 50%; }
         button:hover { background-color: #ff6b81; }
         
-        /* จอยสติ๊กจำลองบนมือถือ ปรับขนาดให้พอดีนิ้ว */
-        #joystick-container {
-            display: none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 110px; height: 110px; background-color: rgba(255, 255, 255, 0.1);
-            border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
-            justify-content: center; align-items: center; user-select: none; -webkit-user-select: none;
+        /* แผงปุ่มกดลูกศรสำหรับมือถือ ปรับตำแหน่งและขนาดให้กดง่าย */
+        #mobile-controls {
+            display: none;
+            margin-top: 15px;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            -webkit-user-select: none;
         }
-        #joystick-knob { width: 45px; height: 45px; background-color: #ff4757; border-radius: 50%; position: absolute; }
+        .dpad-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 8px 0;
+        }
+        .btn-control {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+        .btn-control:active {
+            background-color: rgba(255, 71, 87, 0.6);
+            border-color: #ff4757;
+        }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -35,7 +60,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบรอบการเล่น | จอยสติ๊กมือถือ | โหมดคนดู</p>
+            <p>ระบบรอบการเล่น | ปุ่มกดควบคุมมือถือ | โหมดคนดู</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -44,7 +69,19 @@
 
     <div id="game-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
-        <div id="joystick-container"><div id="joystick-knob"></div></div>
+        
+        <div id="mobile-controls">
+            <div>
+                <div class="dpad-row">
+                    <div class="btn-control" id="btn-up">↑</div>
+                </div>
+                <div class="dpad-row">
+                    <div class="btn-control" id="btn-left">←</div>
+                    <div class="btn-control" id="btn-down">↓</div>
+                    <div class="btn-control" id="btn-right">→</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -65,62 +102,21 @@
             { x: 350, y: 230, w: 100, h: 40 }
         ];
 
+        // ใช้ระบบสถานะการกดปุ่มเดียวกันทั้งคอมพิวเตอร์และมือถือ เพื่อล็อกความเร็วให้เท่ากัน
         const inputState = { up: false, down: false, left: false, right: false };
-        let joystickVector = { x: 0, y: 0 };
 
         function setupControls() {
+            // ควบคุมบนคอมฯ
             window.addEventListener('keydown', e => { handleKey(e.key, true); });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
 
+            // ควบคุมบนมือถือ (ปุ่มลูกศร)
             if (isMobile) {
-                const container = document.getElementById('joystick-container');
-                const knob = document.getElementById('joystick-knob');
-                container.style.display = 'flex';
-
-                let isDrawing = false;
-                let startX = 0, startY = 0;
-
-                container.addEventListener('touchstart', (e) => {
-                    isDrawing = true;
-                    const rect = container.getBoundingClientRect();
-                    startX = rect.left + rect.width / 2;
-                    startY = rect.top + rect.height / 2;
-                });
-
-                container.addEventListener('touchmove', (e) => {
-                    if (!isDrawing) return; e.preventDefault();
-                    const touch = e.touches[0];
-                    let deltaX = touch.clientX - startX;
-                    let deltaY = touch.clientY - startY;
-                    let distance = Math.hypot(deltaX, deltaY);
-                    let maxRadius = 35; // ระยะดึงสูงสุด
-
-                    // ควบคุมทิศทางและล็อกเวกเตอร์ไม่ให้หลุดเกินขอบขีดจำกัด
-                    if (distance > maxRadius) {
-                        deltaX = (deltaX / distance) * maxRadius;
-                        deltaY = (deltaY / distance) * maxRadius;
-                        distance = maxRadius;
-                    }
-                    knob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                    
-                    // ส่วนแก้ไขบั๊ก: คำนวณเป็นอัตราส่วนเวกเตอร์ (คล้าย Normalize ทิศทางแบบคงที่ ไม่เร่งความเร็วเกินไป)
-                    if (distance > 0) {
-                        joystickVector.x = deltaX / distance;
-                        joystickVector.y = deltaY / distance;
-                        // ปรับน้ำหนักแรงกดตามระยะการลากจริงแต่ไม่ให้เกินค่า 1.00
-                        let intensity = Math.min(1, distance / maxRadius);
-                        joystickVector.x *= intensity;
-                        joystickVector.y *= intensity;
-                    } else {
-                        joystickVector.x = 0;
-                        joystickVector.y = 0;
-                    }
-                });
-
-                container.addEventListener('touchend', () => {
-                    isDrawing = false; knob.style.transform = 'translate(0px, 0px)';
-                    joystickVector.x = 0; joystickVector.y = 0;
-                });
+                document.getElementById('mobile-controls').style.display = 'flex';
+                setupMobileButton('btn-up', 'up');
+                setupMobileButton('btn-down', 'down');
+                setupMobileButton('btn-left', 'left');
+                setupMobileButton('btn-right', 'right');
             }
         }
 
@@ -130,6 +126,14 @@
             if (key === 's' || key === 'arrowdown') inputState.down = isPressed;
             if (key === 'a' || key === 'arrowleft') inputState.left = isPressed;
             if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
+        }
+
+        // ฟังก์ชันดักจับการกดปุ่มบนหน้าจอมือถือ
+        function setupMobileButton(id, direction) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); inputState[direction] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); inputState[direction] = false; });
+            btn.addEventListener('touchcancel', (e) => { e.preventDefault(); inputState[direction] = false; });
         }
 
         function drawStickman(x, y, name, isIt, vx, vy, bombTimer, isSpectator, cooldown) {
@@ -150,7 +154,6 @@
             ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 5); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x - 10, y - 5); ctx.lineTo(x + 10, y - 5); ctx.stroke();
             
-            // จำกัดอนิเมชั่นขาแกว่งตามค่าความเร็วที่ถูกต้อง
             let limitedVx = Math.max(-3.5, Math.min(3.5, vx));
             ctx.beginPath(); ctx.moveTo(x, y + 5);
             ctx.lineTo(x - 6 + (limitedVx * 2), y + 18); ctx.moveTo(x, y + 5);
@@ -196,18 +199,18 @@
             if (!me || me.isSpectator) return;
 
             let targetVx = 0; let targetVy = 0;
-            let baseSpeed = 3.5; // ความเร็วมาตรฐานสูงสุดที่เท่ากันทุกแพลตฟอร์ม
+            let baseSpeed = 3.5; // ความเร็วมาตรฐานสูงสุดที่เท่ากัน 100% ทุกเครื่อง
 
-            if (isMobile) {
-                // ล็อกความเร็วบนมือถือให้วิ่งเท่าคอมพิวเตอร์เป๊ะๆ
-                targetVx = joystickVector.x * baseSpeed;
-                targetVy = joystickVector.y * baseSpeed;
-            } else {
-                if (inputState.up) targetVy = -baseSpeed;
-                if (inputState.down) targetVy = baseSpeed;
-                if (inputState.left) targetVx = -baseSpeed;
-                if (inputState.right) targetVx = baseSpeed;
-                if (targetVx !== 0 && targetVy !== 0) { targetVx *= 0.7071; targetVy *= 0.7071; }
+            // คำนวณทิศทางการเคลื่อนที่จากอินพุตสถานะ (แชร์ระบบเดียวกัน)
+            if (inputState.up) targetVy = -baseSpeed;
+            if (inputState.down) targetVy = baseSpeed;
+            if (inputState.left) targetVx = -baseSpeed;
+            if (inputState.right) targetVx = baseSpeed;
+
+            // Normalize ความเร็วเมื่อกดเดินเฉียง ไม่ให้วิ่งเร็วกว่าปกติ
+            if (targetVx !== 0 && targetVy !== 0) { 
+                targetVx *= 0.7071; 
+                targetVy *= 0.7071; 
             }
 
             me.vx = targetVx; me.vy = targetVy;
