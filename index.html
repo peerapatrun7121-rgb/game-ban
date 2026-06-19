@@ -40,7 +40,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD | ปรับปรุงการกดเปลี่ยนทิศทางไม่ให้กระตุก</p>
+            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD | ระบบคุมพิกัดอิสระ (Zero Lag Movement)</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -173,31 +173,26 @@
                     players[updatedPlayer.id].targetX = updatedPlayer.x;
                     players[updatedPlayer.id].targetY = updatedPlayer.y;
                 } else {
+                    // อัปเดตสถานะของทุกคน
                     players[updatedPlayer.id].isIt = updatedPlayer.isIt;
                     players[updatedPlayer.id].bombTimer = updatedPlayer.bombTimer;
                     players[updatedPlayer.id].cooldown = updatedPlayer.cooldown;
                     players[updatedPlayer.id].isSpectator = updatedPlayer.isSpectator;
                     
-                    // เก็บค่าความเร็วจากเซิร์ฟเวอร์มาวาดทิศทางขาขยับ
-                    players[updatedPlayer.id].vx = updatedPlayer.vx;
-                    players[updatedPlayer.id].vy = updatedPlayer.vy;
-                    
-                    // ปักหมุดพิกัดจากเซิร์ฟเวอร์ไว้
-                    players[updatedPlayer.id].targetX = updatedPlayer.x;
-                    players[updatedPlayer.id].targetY = updatedPlayer.y;
-
-                    // ✨ แก้ไขจุดสำคัญ: สำหรับตัวเราเอง ขยายลิมิตการดึงกลับให้กว้างขึ้นเป็น 80 พิกัด
-                    // และปล่อยให้เครื่องเราเป็นคนเกลี่ยพิกัดเข้าหาเซิร์ฟเวอร์แทนการวาร์ปดื้อๆ เพื่อแก้ปัญหากระตุกตอนเปลี่ยนปุ่ม
-                    if (updatedPlayer.id === myId) {
+                    if (updatedPlayer.id !== myId) {
+                        // สำหรับคนอื่น: เก็บพิกัดเป้าหมายไว้สไลด์ตามปกติ
+                        players[updatedPlayer.id].vx = updatedPlayer.vx;
+                        players[updatedPlayer.id].vy = updatedPlayer.vy;
+                        players[updatedPlayer.id].targetX = updatedPlayer.x;
+                        players[updatedPlayer.id].targetY = updatedPlayer.y;
+                    } else {
+                        // ✨ ส่วนสำคัญที่สุดแก้ทางแปลก/กระตุก: 
+                        // สำหรับตัวเราเอง ห้ามเอาพิกัดเซิร์ฟเวอร์มาทับหรือมาสไลด์แก้เด็ดขาด เพื่อให้การคุมพิกัดเป็นแบบออฟไลน์ลื่นๆ
+                        // จะยอมรับพิกัดเซิร์ฟเวอร์ดึงกลับก็ต่อเมื่อเครื่องเรา "บั๊กทะลุกำแพงข้ามแมพ" ไปไกลเกิน 150 พิกัดเท่านั้น
                         let distanceError = Math.hypot(players[myId].x - updatedPlayer.x, players[myId].y - updatedPlayer.y);
-                        if (distanceError > 80) { 
-                            // ถ้าหลุดกรอบรุนแรงจริงๆ ค่อยยอมให้วาร์ป
+                        if (distanceError > 150) { 
                             players[myId].x = updatedPlayer.x;
                             players[myId].y = updatedPlayer.y;
-                        } else if (distanceError > 2) {
-                            // ถ้าคลาดเคลื่อนนิดหน่อยตอนสลับปุ่ม ให้ค่อยๆ ดึงกลับแบบนุ่มนวล (Soft Interpolation)
-                            players[myId].x += (updatedPlayer.x - players[myId].x) * 0.1;
-                            players[myId].y += (updatedPlayer.y - players[myId].y) * 0.1;
                         }
                     }
                 }
@@ -218,6 +213,7 @@
             gameRunning = true; window.requestAnimationFrame(gameLoop);
         }
 
+        // ตัวเราคุมพิกัดตัวเองแบบ Singleplayer ไร้ดีเลย์อินเทอร์เน็ตมากวนใจ
         function updateLocalPlayer() {
             let me = players[myId];
             if (!me || me.isSpectator) return;
@@ -236,7 +232,6 @@
                 targetVy *= 0.7071;
             }
 
-            // ตั้งค่าความเร็วทันทีที่กดปุ่ม
             me.vx = targetVx;
             me.vy = targetVy;
 
@@ -249,6 +244,7 @@
             handleWallCollision(me, 'y', radius);
             me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
 
+            // ส่งข้อมูลสัญญาณกดปุ่มไปบอกหลังบ้านตามปกติ
             if (socket && socket.connected) {
                 socket.emit('player_move', {
                     up: inputState.up,
@@ -259,10 +255,10 @@
             }
         }
 
+        // สไลด์ตำแหน่งผู้เล่นคนอื่นให้นุ่มนวล
         function lerpPlayers() {
             Object.keys(players).forEach(id => {
                 let p = players[id];
-                // เกลี่ยพิกัดเฉพาะผู้เล่นคนอื่นให้เคลื่อนที่นุ่มนวล
                 if (id !== myId) {
                     if (p.targetX !== undefined && p.targetY !== undefined) {
                         p.x += (p.targetX - p.x) * 0.15;
