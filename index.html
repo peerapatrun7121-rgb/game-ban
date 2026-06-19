@@ -9,17 +9,15 @@
             margin: 0; padding: 0; background-color: #222; color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex; justify-content: center; align-items: center;
-            min-height: 100vh; overflow-x: hidden; touch-action: pan-y; /* 👈 อนุญาตให้เลื่อนขึ้นลงในแนวตั้งได้เมื่อเมนูล้น */
+            min-height: 100vh; overflow-x: hidden; touch-action: pan-y;
         }
         
-        /* 📱 ปรับแต่ง Container หน้าเมนูให้เลื่อนขึ้นลงได้บนมือถือ */
         #menu-container { 
             text-align: center; position: relative; width: 100%; max-width: 900px; 
             max-height: 100vh; overflow-y: auto; padding: 20px 0; box-sizing: border-box;
             -webkit-overflow-scrolling: touch;
         }
         
-        /* 🎮 หน้าต่างในเกมจะล็อกนิ่งตามเดิม ไม่เลื่อนหลุดจอ */
         #game-container { display: none; text-align: center; position: relative; width: 100%; max-width: 900px; }
         
         canvas { 
@@ -29,7 +27,6 @@
         
         .menu-layout { display: flex; gap: 15px; justify-content: center; align-items: stretch; flex-wrap: wrap; margin: 10px; }
         
-        /* 📜 กล่องบันทึกการอัปเดต */
         .update-box { 
             background-color: #2b2b2b; padding: 15px; border-radius: 10px; border: 2px solid #555;
             text-align: left; width: 260px; max-height: 280px; overflow-y: auto; font-size: 13px; box-shadow: 0 0 15px rgba(0,0,0,0.3);
@@ -52,7 +49,6 @@
 
         button.btn-start { background-color: #ff4757; color: white; border: none; padding: 10px 40px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 70%; font-weight: bold; margin-top: 5px; }
         
-        /* 📺 ปุ่ม Fullscreen */
         .global-fullscreen-btn {
             position: fixed; top: 15px; right: 15px; background: #ff4757; 
             color: white; border: 2px solid #fff; padding: 8px 14px; border-radius: 6px; 
@@ -60,34 +56,37 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
 
-        /* 📱 จัดวางปุ่มบนมือถือ */
+        /* 📱 ปุ่มกดในมือถือ */
         #mobile-controls {
             display: none; justify-content: space-between; align-items: center; 
-            position: absolute; bottom: 10px; left: 10px; right: 10px;
-            box-sizing: border-box; pointer-events: none; z-index: 10;
+            position: absolute; bottom: 15px; left: 15px; right: 15px;
+            box-sizing: border-box; pointer-events: none; z-index: 99;
         }
         #joystick-base {
-            width: 90px; height: 90px; background-color: rgba(255, 255, 255, 0.15);
+            width: 100px; height: 100px; background-color: rgba(255, 255, 255, 0.15);
             border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 50%; position: relative; pointer-events: auto;
         }
         #joystick-stick {
-            width: 36px; height: 36px; background-color: #ff4757;
-            border-radius: 50%; position: absolute; top: 24px; left: 24px;
+            width: 40px; height: 40px; background-color: #ff4757;
+            border-radius: 50%; position: absolute; top: 27px; left: 27px; pointer-events: none;
         }
-        .right-controls { display: flex; align-items: flex-end; gap: 12px; pointer-events: auto; }
-        .skill-container { display: flex; flex-direction: column; gap: 8px; }
+        .right-controls { display: flex; align-items: flex-end; gap: 15px; pointer-events: auto; }
+        .skill-container { display: flex; flex-direction: column; gap: 10px; }
+        
+        /* เพิ่มขนาดและปรับส่วนสัมผัสของปุ่มให้ตอบสนองดีขึ้น */
         .btn-skill {
-            width: 48px; height: 48px; background-color: rgba(47, 53, 66, 0.85); border: 2px solid #57606f;
-            border-radius: 50%; color: white; font-weight: bold; font-size: 11px;
+            width: 52px; height: 52px; background-color: rgba(47, 53, 66, 0.9); border: 2px solid #57606f;
+            border-radius: 50%; color: white; font-weight: bold; font-size: 12px;
             display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
+            user-select: none; -webkit-user-select: none;
         }
         .btn-dash {
-            width: 56px; height: 56px; background-color: rgba(46, 213, 115, 0.85); border: 2px solid #2ed573;
-            border-radius: 50%; color: white; font-weight: bold; font-size: 12px;
-            display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 0 10px rgba(46, 213, 115, 0.5);
+            width: 64px; height: 64px; background-color: #2ed573; border: 3px solid #fff;
+            border-radius: 50%; color: white; font-weight: bold; font-size: 14px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer; 
+            box-shadow: 0 0 15px rgba(46, 213, 115, 0.6); user-select: none; -webkit-user-select: none;
         }
 
-        /* แจ้งเตือนแนะนำให้เล่นแนวนอน */
         #orientation-warning {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
             background:rgba(17, 17, 17, 0.95); z-index:9999; justify-content:center; align-items:center;
@@ -115,10 +114,8 @@
             
             <div class="update-box">
                 <h3>📢 บันทึกการอัปเดตเกม</h3>
-                <p><span class="update-tag">NEW</span> <b>ระบบเลื่อนหน้าเมนู:</b> แก้ไขปัญหามือถือจอล้น เมนูหลักสามารถใช้นิ้วเลื่อนสไลด์ ขึ้น-ลง เพื่อกดปุ่มเริ่มเกมได้แล้ว 📱</p>
-                <p><span class="update-tag">NEW</span> <b>ย้ายปุ่มขยายหน้าจอ:</b> ย้ายปุ่ม Fullscreen มาไว้ที่มุมขวาบนตั้งแต่หน้าเมนูแรกเพื่อความสะดวก 📺</p>
-                <p><span class="update-tag">FIX</span> <b>ระบบแดชพุ่งตัว:</b> แก้บั๊กกดแดช (Dash) ตอนเดินไม่ได้ ล็อกเป้าหมายตามทิศทางจอยสติ๊กแม่นยำ 100%</p>
-                <p><span class="update-tag">FIX</span> <b>ระบบสัมผัส:</b> อัปเดต Multi-touch แยกแยะนิ้วซ้าย-ขวา เดินไปกดสกิลไปได้อิสระ</p>
+                <p><span class="update-tag">FIX</span> <b>ระบบแดชพุ่งตัวตอนเดิน:</b> แก้ไขโค้ดส่วนเช็คทิศทางอย่างสิ้นเชิง ตอนนี้สามารถกด แดช (Dash) ในขณะที่ลากจอยสติ๊กเดินอยู่ได้อย่างลื่นไหลแล้ว 💨</p>
+                <p><span class="update-tag">FIX</span> <b>ระบบสัมผัสแยกฝั่ง:</b> ปรับปรุง Multi-touch บนมือถือ ไม่ให้ปุ่มกดสกิลและจอยสติ๊กแย่งสัญญาณกัน</p>
                 <p style="font-size:11px; color:#777; text-align:center; margin-top:15px;">— กำลังอยู่ในช่วงทดสอบระบบ —</p>
             </div>
 
@@ -318,8 +315,9 @@
             const btnS2 = document.getElementById('btn-s2-mb');
 
             let joystickTouchId = null;
-            let maxRadius = 30;
+            let maxRadius = 35;
 
+            // แก้ไขระบบสัมผัส Multi-touch แยกแยะนิ้วซ้ายกับนิ้วขวาอย่างเด็ดขาด
             window.addEventListener('touchstart', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -329,6 +327,7 @@
                         joystickTouchId = touch.identifier;
                         updateJoystickPosition(touch, base, stick, maxRadius);
                     }
+                    // ใช้ preventDefault และทำงานทันทีเพื่อให้ตอบสนองไวที่สุด แม้ตัวละครจะเดินอยู่
                     if (targetEl === btnDash) { e.preventDefault(); useDash(); }
                     if (targetEl === btnS1) { e.preventDefault(); useSkill(1); }
                     if (targetEl === btnS2) { e.preventDefault(); useSkill(2); }
@@ -390,26 +389,37 @@
             socket.emit('cast_skill', { skillNum: skillNumber, dirX: lastFacingDir.x, dirY: lastFacingDir.y });
         }
 
+        // 💥 แก้ไขระบบคำนวณทิศทางการแดชพุ่งตัวใหม่ทั้งหมด
         function useDash() {
             let me = players[myId]; if (!me || me.isSpectator || me.health <= 0) return;
             let now = Date.now();
             if (now < cooldowns.dash) return; 
 
-            let dashX = lastFacingDir.x;
-            let dashY = lastFacingDir.y;
+            let dashX = 0;
+            let dashY = 0;
 
+            // วิธีที่ 1: ตรวจสอบจากการลากจอยสติ๊ก ณ วินาทีนั้น (สำหรับมือถือ)
             if (isMobile && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
                 let len = Math.hypot(joystickVector.x, joystickVector.y);
                 dashX = joystickVector.x / len;
                 dashY = joystickVector.y / len;
-            } else if (inputState.up || inputState.down || inputState.left || inputState.right) {
-                let vx = 0; let vy = 0;
-                if (inputState.up) vy = -1; if (inputState.down) vy = 1;
-                if (inputState.left) vx = -1; if (inputState.right) vx = 1;
-                let len = Math.hypot(vx, vy);
-                if (len > 0) { dashX = vx / len; dashY = vy / len; }
+            } 
+            // วิธีที่ 2: ตรวจสอบจากการกดปุ่มคีย์บอร์ด (สำหรับคอมพิวเตอร์)
+            else if (inputState.up || inputState.down || inputState.left || inputState.right) {
+                if (inputState.up) dashY = -1;
+                if (inputState.down) dashY = 1;
+                if (inputState.left) dashX = -1;
+                if (inputState.right) dashX = 1;
+                let len = Math.hypot(dashX, dashY);
+                if (len > 0) { dashX /= len; dashY /= len; }
+            } 
+            // วิธีที่ 3: หากยืนนิ่งเฉย ๆ ให้พุ่งไปทางทิศล่าสุดที่ตัวละครหันหน้าไป
+            else {
+                dashX = lastFacingDir.x;
+                dashY = lastFacingDir.y;
             }
 
+            // ส่งคำสั่งแดชไปยัง Server ทันที
             cooldowns.dash = now + COOLDOWN_TIMES.dash;
             socket.emit('player_dash', { dirX: dashX, dirY: dashY });
         }
@@ -419,7 +429,6 @@
             if (nameInput === "") nameInput = "Player_" + Math.floor(Math.random() * 900 + 100);
             localStorage.setItem('b_name', nameInput);
 
-            // 🔒 สั่งล็อกหน้าจอทันทีเมื่อเกมเริ่ม เพื่อให้ผู้เล่นบังคับทิศทางได้อย่างเสถียร
             document.body.style.touchAction = "none";
 
             document.getElementById('menu-container').style.display = 'none';
@@ -477,8 +486,6 @@
         function backToMenu() {
             gameRunning = false; if(socket) socket.disconnect();
             projectiles = []; telegraphs = []; cooldowns = { skill1: 0, skill2: 0, dash: 0 };
-            
-            // 🔓 ปลดล็อกให้เลื่อนหน้าจอได้อีกครั้งเมื่อเด้งกลับมาหน้าเมนู
             document.body.style.touchAction = "pan-y";
 
             document.getElementById('game-container').style.display = 'none';
@@ -573,7 +580,7 @@
                         ctx.beginPath(); ctx.moveTo(owner.x, owner.y - 15); ctx.lineTo(owner.x + dx * 280, (owner.y - 15) + dy * 280); ctx.stroke();
                     } else {
                         ctx.strokeStyle = "rgba(255, 71, 87, 0.9)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-                        ctx.beginPath(); ctx.arc(owner.x + dx * 90, (owner.y - 15) + dy * 90, 45, 0, Math.PI * 2); ctx.stroke();
+                        ctx.beginPath(); ctx.arc(owner.x + dx * 90, (owner.y - 15) + dy * 90, 45, 0, Math.PI * 2); stroke();
                     }
                     ctx.restore();
                 }
