@@ -18,7 +18,8 @@
         input[type="text"] { width: 80%; padding: 12px; margin: 20px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; }
         button { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 50%; }
         button:hover { background-color: #ff6b81; }
-        /* จอยสติ๊กจำลองบนมือถือ */
+        
+        /* จอยสติ๊กจำลองบนมือถือ ปรับขนาดให้พอดีนิ้ว */
         #joystick-container {
             display: none; position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             width: 110px; height: 110px; background-color: rgba(255, 255, 255, 0.1);
@@ -92,17 +93,28 @@
                     let deltaX = touch.clientX - startX;
                     let deltaY = touch.clientY - startY;
                     let distance = Math.hypot(deltaX, deltaY);
-                    let maxRadius = 35; 
+                    let maxRadius = 35; // ระยะดึงสูงสุด
 
+                    // ควบคุมทิศทางและล็อกเวกเตอร์ไม่ให้หลุดเกินขอบขีดจำกัด
                     if (distance > maxRadius) {
                         deltaX = (deltaX / distance) * maxRadius;
                         deltaY = (deltaY / distance) * maxRadius;
+                        distance = maxRadius;
                     }
                     knob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
                     
-                    // บั๊กความเร็วถูกแก้ตรงนี้: จำกัดค่าจอยสติ๊กให้อยู่ในช่วงไม่เกิน 1 เสมอ
-                    joystickVector.x = deltaX / maxRadius;
-                    joystickVector.y = deltaY / maxRadius;
+                    // ส่วนแก้ไขบั๊ก: คำนวณเป็นอัตราส่วนเวกเตอร์ (คล้าย Normalize ทิศทางแบบคงที่ ไม่เร่งความเร็วเกินไป)
+                    if (distance > 0) {
+                        joystickVector.x = deltaX / distance;
+                        joystickVector.y = deltaY / distance;
+                        // ปรับน้ำหนักแรงกดตามระยะการลากจริงแต่ไม่ให้เกินค่า 1.00
+                        let intensity = Math.min(1, distance / maxRadius);
+                        joystickVector.x *= intensity;
+                        joystickVector.y *= intensity;
+                    } else {
+                        joystickVector.x = 0;
+                        joystickVector.y = 0;
+                    }
                 });
 
                 container.addEventListener('touchend', () => {
@@ -123,7 +135,7 @@
         function drawStickman(x, y, name, isIt, vx, vy, bombTimer, isSpectator, cooldown) {
             let color = isIt ? '#ff4757' : '#ffffff';
             if (isSpectator) color = 'rgba(150,150,150,0.35)';
-            if (cooldown > 0) color = '#ff9f43'; // สีส้มตอนติดคูลดาวน์โดนแปะ
+            if (cooldown > 0) color = '#ff9f43';
 
             ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3;
             ctx.font = "14px Arial"; ctx.textAlign = "center";
@@ -137,9 +149,12 @@
             ctx.beginPath(); ctx.arc(x, y - 15, 6, 0, Math.PI * 2); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x, y - 9); ctx.lineTo(x, y + 5); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x - 10, y - 5); ctx.lineTo(x + 10, y - 5); ctx.stroke();
+            
+            // จำกัดอนิเมชั่นขาแกว่งตามค่าความเร็วที่ถูกต้อง
+            let limitedVx = Math.max(-3.5, Math.min(3.5, vx));
             ctx.beginPath(); ctx.moveTo(x, y + 5);
-            ctx.lineTo(x - 6 + (vx * 2), y + 18); ctx.moveTo(x, y + 5);
-            ctx.lineTo(x + 6 - (vx * 2), y + 18); ctx.stroke();
+            ctx.lineTo(x - 6 + (limitedVx * 2), y + 18); ctx.moveTo(x, y + 5);
+            ctx.lineTo(x + 6 - (limitedVx * 2), y + 18); ctx.stroke();
         }
 
         function drawWalls() {
@@ -181,9 +196,10 @@
             if (!me || me.isSpectator) return;
 
             let targetVx = 0; let targetVy = 0;
-            let baseSpeed = 3.5; // ความเร็วมาตรฐานที่เท่ากันทุกเครื่อง
+            let baseSpeed = 3.5; // ความเร็วมาตรฐานสูงสุดที่เท่ากันทุกแพลตฟอร์ม
 
             if (isMobile) {
+                // ล็อกความเร็วบนมือถือให้วิ่งเท่าคอมพิวเตอร์เป๊ะๆ
                 targetVx = joystickVector.x * baseSpeed;
                 targetVy = joystickVector.y * baseSpeed;
             } else {
