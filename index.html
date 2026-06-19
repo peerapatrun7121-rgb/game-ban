@@ -32,7 +32,7 @@
             text-align: left; width: 260px; max-height: 280px; overflow-y: auto; font-size: 13px; box-shadow: 0 0 15px rgba(0,0,0,0.3);
         }
         .update-box h3 { margin-top: 0; color: #ff4757; border-bottom: 1px solid #444; padding-bottom: 5px; font-size: 15px; }
-        .update-tag { background: #ffa502; color: #000; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-right: 5px; }
+        .update-tag { background: #3498db; color: #fff; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-right: 5px; }
 
         .menu-box { background-color: #333; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); flex: 1; min-width: 320px; }
         input[type="text"] { width: 80%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; background: #444; color: #fff; }
@@ -107,8 +107,8 @@
             
             <div class="update-box">
                 <h3>📢 บันทึกการอัปเดตเกม</h3>
-                <p><span class="update-tag">BUG FIX</span> <b>แก้บัคกด E แล้วหาย:</b> เพิ่มฟังก์ชันตรวจสอบขอบเขตความปลอดภัย (Boundary Clamp) ป้องกันตัวละครหลุดทะลุเฟรมหน้าจอเมื่อกดใช้สกิล E ดิ่งจากฟ้า 🛠️</p>
-                <p><span class="update-tag">STABLE</span> <b>ระบบดักจับพิกัด:</b> เพิ่มระบบรีเซ็ตพิกัดอัตโนมัติหาก Server ส่งค่าตำแหน่งที่ผิดปกติเข้ามา</p>
+                <p><span class="update-tag">NEW MOVE</span> <b>ระบบเดินแบบ 360 องศาบนคอม:</b> ปรับปรุงระบบควบคุมของคีย์บอร์ดใหม่หมด โดยการนำระบบแรงเฉื่อยเชิงมุม (Linear Velocity Smoothing) มาใช้ ทำให้เปลี่ยนทิศทางได้พริ้วไหว โค้งมน ไม่เป็นช่องเหลี่ยมแข็ง ๆ คล้ายการหมุนอนาล็อกบนมือถือแล้ว 💨</p>
+                <p><span class="update-tag">STABLE</span> <b>ระบบดักจับพิกัด:</b> ป้องกันค่าผิดปกติและคุมเข้มขอบเขตฉากอย่างถาวร</p>
                 <p style="font-size:11px; color:#777; text-align:center; margin-top:15px;">— กำลังอยู่ในช่วงทดสอบระบบ —</p>
             </div>
 
@@ -411,7 +411,6 @@
                     players[updatedPlayer.id].hat = updatedPlayer.hat;
                     players[updatedPlayer.id].charClass = updatedPlayer.charClass;
 
-                    // 🛠️ ตรวจจับค่าผิดปกติ (NaN) จากผลของสกิลดิ่งจากฟ้า
                     if (isNaN(updatedPlayer.x) || isNaN(updatedPlayer.y)) {
                         updatedPlayer.x = canvas.width / 2;
                         updatedPlayer.y = canvas.height / 2;
@@ -453,27 +452,54 @@
 
         function updateLocalPlayer() {
             let me = players[myId]; if (!me || me.isSpectator || me.health <= 0) return;
-            let baseSpeed = 4.0; let targetVx = 0; let targetVy = 0;
+            let baseSpeed = 4.0; 
+            let targetVx = 0; 
+            let targetVy = 0;
+
             if (isMobile) {
-                targetVx = joystickVector.x * baseSpeed; targetVy = joystickVector.y * baseSpeed;
+                targetVx = joystickVector.x * baseSpeed; 
+                targetVy = joystickVector.y * baseSpeed;
+                // มือถือใช้วิธีรับค่าตรงจากอนาล็อกปกติ
+                me.vx = targetVx;
+                me.vy = targetVy;
             } else {
-                if (inputState.up) targetVy = -baseSpeed; if (inputState.down) targetVy = baseSpeed;
-                if (inputState.left) targetVx = -baseSpeed; if (inputState.right) targetVx = baseSpeed;
-                if (targetVx !== 0 && targetVy !== 0) { targetVx *= 0.7071; targetVy *= 0.7071; }
+                // 🛠️ คำนวณหาทิศทางเป้าหมายจากคีย์บอร์ดคอมพิวเตอร์
+                if (inputState.up) targetVy = -baseSpeed; 
+                if (inputState.down) targetVy = baseSpeed;
+                if (inputState.left) targetVx = -baseSpeed; 
+                if (inputState.right) targetVx = baseSpeed;
+                
+                // ควบคุมความเร็วทแยงมุมให้คงที่
+                if (targetVx !== 0 && targetVy !== 0) { 
+                    targetVx *= 0.7071; 
+                    targetVy *= 0.7071; 
+                }
+
+                // 🛠️ ระบบเกลี่ยความเร็ว (Inertia Smoothing) ทำความเร็วให้ค่อย ๆ เปลี่ยนแปลงโค้งมน 360 องศา
+                let easeFactor = 0.18; // ยิ่งค่าน้อยยิ่งนุ่มนวล ยิ่งค่ามากยิ่งตอบสนองไว
+                if (me.vx === undefined) me.vx = 0;
+                if (me.vy === undefined) me.vy = 0;
+
+                me.vx += (targetVx - me.vx) * easeFactor;
+                me.vy += (targetVy - me.vy) * easeFactor;
+
+                // หักล้างค่าความเร็วที่เหลือน้อยมากให้เป็น 0 เพื่อป้องกันการไหลไม่หยุด
+                if (Math.abs(me.vx) < 0.05) me.vx = 0;
+                if (Math.abs(me.vy) < 0.05) me.vy = 0;
             }
-            me.vx = targetVx; me.vy = targetVy;
             
-            if (me.vx !== 0 || me.vy !== 0) { 
+            // อัปเดตทิศทางการหันหน้าโดยอิงตามค่าความเร็วที่เกลี่ยแล้ว
+            if (Math.abs(me.vx) > 0.1 || Math.abs(me.vy) > 0.1) { 
                 let len = Math.hypot(me.vx, me.vy); 
                 lastFacingDir = { x: me.vx / len, y: me.vy / len }; 
-                me.facingX = lastFacingDir.x; me.facingY = lastFacingDir.y;
+                me.facingX = lastFacingDir.x; 
+                me.facingY = lastFacingDir.y;
             }
 
             let radius = 12;
             me.x += me.vx; handleWallCollision(me, 'x', radius); 
             me.y += me.vy; handleWallCollision(me, 'y', radius); 
             
-            // 🛠️ คุมเข้มขอบเขต (Boundary Clamp) ป้องกันหลุดจอเด็ดขาดจากผลสกิลดิ่งจากฟ้า
             me.x = Math.max(radius, Math.min(canvas.width - radius, me.x));
             me.y = Math.max(radius + 42, Math.min(canvas.height - radius, me.y));
 
@@ -486,7 +512,6 @@
             Object.keys(players).forEach(id => {
                 let p = players[id];
                 if (id !== myId && p.targetX !== undefined && p.targetY !== undefined) {
-                    // ป้องกันค่า NaN ในระบบ Lerp
                     if (!isNaN(p.targetX) && !isNaN(p.targetY)) {
                         p.x += (p.targetX - p.x) * 0.25; p.y += (p.targetY - p.y) * 0.25;
                     }
@@ -580,7 +605,6 @@
                 let p = players[id]; let displayColor = p.color || '#ffffff';
                 if (p.isSpectator || p.health <= 0) displayColor = 'rgba(150,150,150,0.3)';
                 
-                // ป้องกันไม่ให้วาดตัวละครในตำแหน่ง NaN
                 if(!isNaN(p.x) && !isNaN(p.y)) {
                     ctx.fillStyle = "#aaa"; ctx.font = "11px Arial"; ctx.textAlign = "center";
                     ctx.fillText(p.charClass === 'mage' ? '🔥 นักเวทย์ไฟ' : '⚡ นินจา', p.x, p.y - 45);
