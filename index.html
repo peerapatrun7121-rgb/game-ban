@@ -19,7 +19,7 @@
         button { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 50%; }
         button:hover { background-color: #ff6b81; }
         
-        /* แผงปุ่มกดลูกศรสำหรับมือถือ ปรับตำแหน่งและขนาดให้กดง่าย */
+        /* จัดแต่งหน้าตาแผงปุ่มกดจำลองแบบ WASD บนหน้าจอมือถือ */
         #mobile-controls {
             display: none;
             margin-top: 15px;
@@ -28,29 +28,38 @@
             user-select: none;
             -webkit-user-select: none;
         }
-        .dpad-row {
+        .wasd-cluster {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .wasd-row {
             display: flex;
             justify-content: center;
-            gap: 15px;
-            margin: 8px 0;
+            gap: 12px;
+            margin: 6px 0;
         }
-        .btn-control {
-            width: 60px;
-            height: 60px;
+        .btn-wasd {
+            width: 55px;
+            height: 55px;
             background-color: rgba(255, 255, 255, 0.15);
             border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
+            border-radius: 8px; /* ทำมุมโค้งมนเหมือนปุ่มคีย์บอร์ด */
             color: white;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
             display: flex;
             justify-content: center;
             align-items: center;
             touch-action: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .btn-control:active {
-            background-color: rgba(255, 71, 87, 0.6);
+        /* เอฟเฟกต์ตอนเอานิ้วกดปุ่ม */
+        .btn-wasd:active {
+            background-color: rgba(255, 71, 87, 0.7);
             border-color: #ff4757;
+            transform: translateY(2px);
+            box-shadow: 0 2px 3px rgba(0,0,0,0.4);
         }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -60,7 +69,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบรอบการเล่น | ปุ่มกดควบคุมมือถือ | โหมดคนดู</p>
+            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD บนมือถือ | โหมดคนดู</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -71,14 +80,14 @@
         <canvas id="gameCanvas" width="800" height="450"></canvas>
         
         <div id="mobile-controls">
-            <div>
-                <div class="dpad-row">
-                    <div class="btn-control" id="btn-up">↑</div>
+            <div class="wasd-cluster">
+                <div class="wasd-row">
+                    <div class="btn-wasd" id="btn-w">W</div>
                 </div>
-                <div class="dpad-row">
-                    <div class="btn-control" id="btn-left">←</div>
-                    <div class="btn-control" id="btn-down">↓</div>
-                    <div class="btn-control" id="btn-right">→</div>
+                <div class="wasd-row">
+                    <div class="btn-wasd" id="btn-a">A</div>
+                    <div class="btn-wasd" id="btn-s">S</div>
+                    <div class="btn-wasd" id="btn-d">D</div>
                 </div>
             </div>
         </div>
@@ -102,21 +111,21 @@
             { x: 350, y: 230, w: 100, h: 40 }
         ];
 
-        // ใช้ระบบสถานะการกดปุ่มเดียวกันทั้งคอมพิวเตอร์และมือถือ เพื่อล็อกความเร็วให้เท่ากัน
+        // ตัวแปรเก็บสถานะเปิด/ปิดปุ่มกด (แชร์ระบบคำนวณร่วมกันทำให้ความเร็วเสถียร)
         const inputState = { up: false, down: false, left: false, right: false };
 
         function setupControls() {
-            // ควบคุมบนคอมฯ
+            // ควบคุมบนคอมพิวเตอร์
             window.addEventListener('keydown', e => { handleKey(e.key, true); });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
 
-            // ควบคุมบนมือถือ (ปุ่มลูกศร)
+            // ควบคุมบนมือถือ (เปิดแสดงแผงปุ่ม WASD และผูกปุ่ม)
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'flex';
-                setupMobileButton('btn-up', 'up');
-                setupMobileButton('btn-down', 'down');
-                setupMobileButton('btn-left', 'left');
-                setupMobileButton('btn-right', 'right');
+                setupMobileButton('btn-w', 'up');
+                setupMobileButton('btn-s', 'down');
+                setupMobileButton('btn-a', 'left');
+                setupMobileButton('btn-d', 'right');
             }
         }
 
@@ -128,7 +137,7 @@
             if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
         }
 
-        // ฟังก์ชันดักจับการกดปุ่มบนหน้าจอมือถือ
+        // ดักจับการแตะนิ้ว (รองรับการกดพร้อมกันเพื่อเดินเฉียงได้เหมือนคอมพิวเตอร์)
         function setupMobileButton(id, direction) {
             const btn = document.getElementById(id);
             btn.addEventListener('touchstart', (e) => { e.preventDefault(); inputState[direction] = true; });
@@ -198,32 +207,14 @@
             let me = players[myId];
             if (!me || me.isSpectator) return;
 
-            let targetVx = 0; let targetVy = 0;
-            let baseSpeed = 3.5; // ความเร็วมาตรฐานสูงสุดที่เท่ากัน 100% ทุกเครื่อง
-
-            // คำนวณทิศทางการเคลื่อนที่จากอินพุตสถานะ (แชร์ระบบเดียวกัน)
-            if (inputState.up) targetVy = -baseSpeed;
-            if (inputState.down) targetVy = baseSpeed;
-            if (inputState.left) targetVx = -baseSpeed;
-            if (inputState.right) targetVx = baseSpeed;
-
-            // Normalize ความเร็วเมื่อกดเดินเฉียง ไม่ให้วิ่งเร็วกว่าปกติ
-            if (targetVx !== 0 && targetVy !== 0) { 
-                targetVx *= 0.7071; 
-                targetVy *= 0.7071; 
-            }
-
-            me.vx = targetVx; me.vy = targetVy;
-            let radius = 12; me.x += me.vx;
-            handleWallCollision(me, 'x', radius);
-            me.x = Math.max(radius, Math.min(canvas.width - radius, me.x));
-
-            me.y += me.vy;
-            handleWallCollision(me, 'y', radius);
-            me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
-
+            // ส่งสถานะปุ่มกดปัจจุบัน (ทั้งคอมฯ และแผงปุ่มบนมือถือ) ไปให้เซิร์ฟเวอร์หลังบ้านประมวลผล
             if (socket && socket.connected) {
-                socket.emit('player_move', { x: me.x, y: me.y, vx: me.vx, vy: me.vy });
+                socket.emit('player_move', {
+                    up: inputState.up,
+                    down: inputState.down,
+                    left: inputState.left,
+                    right: inputState.right
+                });
             }
         }
 
@@ -233,11 +224,11 @@
                     playerObj.y + radius > wall.y && playerObj.y - radius < wall.y + wall.h) {
                     if (axis === 'x') {
                         if (playerObj.vx > 0) playerObj.x = wall.x - radius;
-                        if (playerObj.vx < 0) playerObj.x = wall.x + wall.w + radius;
+                        if (playerObj.vx < 0) playerObj.x = wall.x + wall.w + 12;
                     }
                     if (axis === 'y') {
                         if (playerObj.vy > 0) playerObj.y = wall.y - radius;
-                        if (playerObj.vy < 0) playerObj.y = wall.y + wall.h + radius;
+                        if (playerObj.vy < 0) playerObj.y = wall.y + wall.h + 12;
                     }
                 }
             }
