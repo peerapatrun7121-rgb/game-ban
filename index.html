@@ -19,7 +19,6 @@
         button { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 50%; }
         button:hover { background-color: #ff6b81; }
         
-        /* แผงปุ่มควบคุมจำลองรูปแบบคีย์บอร์ด WASD บนมือถือ */
         #mobile-controls {
             display: none;
             margin-top: 15px;
@@ -28,36 +27,14 @@
             user-select: none;
             -webkit-user-select: none;
         }
-        .wasd-cluster {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .wasd-row {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin: 6px 0;
-        }
+        .wasd-cluster { display: flex; flex-direction: column; align-items: center; }
+        .wasd-row { display: flex; justify-content: center; gap: 15px; margin: 6px 0; }
         .btn-wasd {
-            width: 65px;
-            height: 65px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border: 3px solid rgba(255, 255, 255, 0.6);
-            border-radius: 12px;
-            color: white;
-            font-size: 24px;
-            font-weight: bold;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            touch-action: none;
+            width: 65px; height: 65px; background-color: rgba(255, 255, 255, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.6); border-radius: 12px;
+            color: white; font-size: 24px; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; touch-action: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.4);
-        }
-        .btn-wasd:active {
-            background-color: rgba(255, 71, 87, 0.8) !important;
-            border-color: #ff4757 !important;
-            transform: translateY(2px);
         }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -67,7 +44,7 @@
     <div id="menu-container">
         <div class="menu-box">
             <h2>เกมวิ่งไล่จับระเบิดขี้ก้าง ออนไลน์</h2>
-            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD บนมือถือ | โหมดคนดู</p>
+            <p>ระบบรอบการเล่น | ปุ่มควบคุมจำลอง WASD บนมือถือ | แก้ไขบั๊กตัวละครหาย</p>
             <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
             <br>
             <button onclick="startGame()">เข้าสู่ห้องเล่นเกม</button>
@@ -112,11 +89,9 @@
         const inputState = { up: false, down: false, left: false, right: false };
 
         function setupControls() {
-            // คีย์บอร์ดคอมพิวเตอร์
             window.addEventListener('keydown', e => { handleKey(e.key, true); });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
 
-            // ทัชสกรีนบนมือถือ
             if (isMobile) {
                 document.getElementById('mobile-controls').style.display = 'flex';
                 setupMobileButton('btn-w', 'up');
@@ -134,27 +109,11 @@
             if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
         }
 
-        // ปรับปรุงระบบดักทัชสกรีนแบบใหม่ ป้องกันปุ่มค้างและรองรับการกดพร้อมกันเพื่อวิ่งเฉียง
         function setupMobileButton(id, direction) {
             const btn = document.getElementById(id);
-            
-            btn.addEventListener('touchstart', (e) => { 
-                e.preventDefault(); 
-                inputState[direction] = true; 
-                btn.style.backgroundColor = "rgba(255, 71, 87, 0.8)";
-            });
-            
-            btn.addEventListener('touchend', (e) => { 
-                e.preventDefault(); 
-                inputState[direction] = false; 
-                btn.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
-            });
-            
-            btn.addEventListener('touchcancel', (e) => { 
-                e.preventDefault(); 
-                inputState[direction] = false; 
-                btn.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
-            });
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); inputState[direction] = true; btn.style.backgroundColor = "rgba(255, 71, 87, 0.8)"; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); inputState[direction] = false; btn.style.backgroundColor = "rgba(255, 255, 255, 0.2)"; });
+            btn.addEventListener('touchcancel', (e) => { e.preventDefault(); inputState[direction] = false; btn.style.backgroundColor = "rgba(255, 255, 255, 0.2)"; });
         }
 
         function drawStickman(x, y, name, isIt, vx, vy, bombTimer, isSpectator, cooldown) {
@@ -199,7 +158,12 @@
             socket.on('connect', () => { myId = socket.id; socket.emit('join_game', { name: nameInput }); });
             socket.on('current_players', (serverPlayers) => { players = serverPlayers; });
             socket.on('new_player', (newPlayerData) => { players[newPlayerData.id] = newPlayerData; });
-            socket.on('player_updated', (updatedPlayer) => { if (players[updatedPlayer.id]) players[updatedPlayer.id] = updatedPlayer; });
+            
+            // ส่วนสำคัญแก้บั๊ก: ยอมรับข้อมูลตำแหน่งพิกัดทั้งหมดจากเซิร์ฟเวอร์มาบันทึกในหน้าเว็บเพื่อเอาไปใช้วาดรูป
+            socket.on('player_updated', (updatedPlayer) => { 
+                players[updatedPlayer.id] = updatedPlayer; 
+            });
+            
             socket.on('player_disconnected', (id) => { delete players[id]; });
             socket.on('game_state_update', (state) => { gameState = state; });
 
@@ -219,7 +183,6 @@
             let me = players[myId];
             if (!me || me.isSpectator) return;
 
-            // ส่งข้อมูลปุ่มกดไปให้เซิร์ฟเวอร์หลังบ้านประมวลผลตำแหน่งแบบเรียลไทม์
             if (socket && socket.connected) {
                 socket.emit('player_move', {
                     up: inputState.up,
