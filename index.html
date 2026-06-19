@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-color-1.0, user-scalable=no, viewport-fit=cover">
     <title>ศึกขี้ก้างประจันบานออนไลน์ - Class Battle</title>
     <style>
         body {
@@ -13,7 +13,12 @@
         }
         #menu-container, #game-container { text-align: center; position: relative; width: 100%; max-width: 800px; }
         #game-container { display: none; }
-        canvas { background-color: #111; border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 100%; height: auto; display: block; margin: 0 auto; }
+        
+        /* สเกล Canvas ให้ยืดหยุ่นตามหน้าจอ */
+        canvas { 
+            background-color: #111; border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+            max-width: 100%; max-height: 85vh; object-fit: contain; display: block; margin: 0 auto; 
+        }
         
         .menu-box { background-color: #333; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin: 5px; }
         input[type="text"] { width: 80%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; background: #444; color: #fff; }
@@ -30,11 +35,18 @@
 
         button.btn-start { background-color: #ff4757; color: white; border: none; padding: 10px 40px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 60%; font-weight: bold; margin-top: 5px; }
         
-        /* 📱 ปรับหน้าจอมือถือให้เล่นแบบแนวนอน */
+        /* ปุ่ม Fullscreen ขยายเต็มจอ */
+        #btn-fullscreen {
+            position: absolute; top: 50px; right: 10px; background: rgba(0, 0, 0, 0.7); 
+            color: white; border: 2px solid #fff; padding: 6px 10px; border-radius: 5px; 
+            cursor: pointer; font-size: 14px; z-index: 99; font-weight: bold; pointer-events: auto;
+        }
+
+        /* 📱 จัดวางปุ่มบนมือถือ */
         #mobile-controls {
             display: none; justify-content: space-between; align-items: center; 
             position: absolute; bottom: 10px; left: 10px; right: 10px;
-            box-sizing: border-box; pointer-events: none;
+            box-sizing: border-box; pointer-events: none; z-index: 10;
         }
         #joystick-base {
             width: 90px; height: 90px; background-color: rgba(255, 255, 255, 0.15);
@@ -57,25 +69,25 @@
             display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 0 10px rgba(46, 213, 115, 0.5);
         }
 
-        /* 🔄 หน้าต่างบังคับให้หมุนหน้าจอ */
+        /* แจ้งเตือนแนะนำให้เล่นแนวนอน (ไม่ล็อกหน้าจอแล้ว แต่เตือนเพื่อความสนุก) */
         #orientation-warning {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
-            background:#111; z-index:9999; justify-content:center; align-items:center;
+            background:rgba(17, 17, 17, 0.95); z-index:9999; justify-content:center; align-items:center;
             flex-direction:column; text-align:center; padding:20px; box-sizing:border-box;
         }
 
         @media screen and (orientation: portrait) and (max-width: 900px) {
             #orientation-warning { display: flex; }
-            #menu-container, #game-container { display: none !important; }
         }
     </style>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
 
-    <div id="orientation-warning">
-        <h2 style="color:#ff4757;">🔄 กรุณาหมุนโทรศัพท์เป็นแนวนอน</h2>
-        <p>เพื่ออรรถรสสูงสุดและปุ่มควบคุมที่ถูกต้องในการเล่นเกมขี้ก้าง</p>
+    <div id="orientation-warning" onclick="this.style.display='none'">
+        <h2 style="color:#ff4757;">🔄 แนะนำให้เล่นแนวแนวนอน</h2>
+        <p>กรุณาเอียงจอมือถือ และกดปุ่ม 📺 เต็มจอ เพื่อการมองเห็นที่ครบถ้วน</p>
+        <button style="background:#444; color:white; border:none; padding:8px 16px; border-radius:5px;">รับทราบ (ปิดแจ้งเตือน)</button>
     </div>
 
     <div id="menu-container">
@@ -124,6 +136,8 @@
     </div>
 
     <div id="game-container">
+        <button id="btn-fullscreen" onclick="toggleFullscreen()">📺 เต็มจอ</button>
+        
         <canvas id="gameCanvas" width="800" height="450"></canvas>
         <div id="mobile-controls">
             <div id="joystick-base">
@@ -167,9 +181,8 @@
         let joystickVector = { x: 0, y: 0 };
         let lastFacingDir = { x: 1, y: 0 };
 
-        // ⏳ เพิ่มคูลดาวน์ระบบแดช (Dash) เข้ามาด้วย
         let cooldowns = { skill1: 0, skill2: 0, dash: 0 }; 
-        const COOLDOWN_TIMES = { skill1: 2000, skill2: 5000, dash: 4000 }; // แดช คูลดาวน์ 4 วินาที
+        const COOLDOWN_TIMES = { skill1: 2000, skill2: 5000, dash: 4000 }; 
 
         window.addEventListener('DOMContentLoaded', () => {
             try {
@@ -182,6 +195,24 @@
                 console.error(e);
             }
         });
+
+        // 📺 ฟังก์ชันเปิด-ปิดโหมดเต็มจอขยายหน้าต่างเกม
+        function toggleFullscreen() {
+            let elem = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+                if (elem.requestFullscreen) { elem.requestFullscreen(); } 
+                else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } 
+                else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
+                document.getElementById('btn-fullscreen').innerText = "❌ ปิดเต็มจอ";
+            } else {
+                if (document.exitFullscreen) { document.exitFullscreen(); } 
+                else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); } 
+                else if (document.msExitFullscreen) { document.msExitFullscreen(); }
+                document.getElementById('btn-fullscreen').innerText = "📺 เต็มจอ";
+            }
+            // รีเฟรชตำแหน่ง Layout เล็กน้อยหลังจากขยายจอ
+            setTimeout(() => { window.scrollTo(0,1); }, 300);
+        }
 
         function updateCustomUI() {
             document.querySelectorAll('.color-picker div').forEach(el => {
@@ -233,7 +264,7 @@
                 handleKey(e.key, true); 
                 if(e.key.toLowerCase() === 'q') useSkill(1);
                 if(e.key.toLowerCase() === 'e') useSkill(2);
-                if(e.key === ' ') useDash(); // คอมพิวเตอร์ กด Spacebar เพื่อพุ่งแดช 💨
+                if(e.key === ' ') useDash(); 
             });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
             if (isMobile) { 
@@ -250,7 +281,6 @@
             if (key === 'd' || key === 'arrowright') inputState.right = isPressed;
         }
 
-        // 📱 💥 ออกแบบระบบจำแนกแยกนิ้วแบบสมบูรณ์ (Multi-touch System) 
         function setupMultiTouchControls() {
             const base = document.getElementById('joystick-base');
             const stick = document.getElementById('joystick-stick');
@@ -261,18 +291,15 @@
             let joystickTouchId = null;
             let maxRadius = 30;
 
-            // ตรวจสอบการสัมผัสทั่วทั้งหน้าจอเพื่อแยกแยะฝั่งนิ้วมือ
             window.addEventListener('touchstart', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
                     const targetEl = touch.target;
 
-                    // ถ้านิ้วกดลงในขอบเขตจอยสติ๊ก
                     if ((targetEl === base || targetEl === stick) && joystickTouchId === null) {
                         joystickTouchId = touch.identifier;
                         updateJoystickPosition(touch, base, stick, maxRadius);
                     }
-                    // คัดแยกปุ่มฝั่งขวา
                     if (targetEl === btnDash) { e.preventDefault(); useDash(); }
                     if (targetEl === btnS1) { e.preventDefault(); useSkill(1); }
                     if (targetEl === btnS2) { e.preventDefault(); useSkill(2); }
@@ -334,15 +361,28 @@
             socket.emit('cast_skill', { skillNum: skillNumber, dirX: lastFacingDir.x, dirY: lastFacingDir.y });
         }
 
-        // 💨 ฟังก์ชันการสั่งงานแดชตัวละครพุ่งไปข้างหน้า
         function useDash() {
             let me = players[myId]; if (!me || me.isSpectator || me.health <= 0) return;
             let now = Date.now();
-            if (now < cooldowns.dash) return; // ติดคูลดาวน์อยู่ข้ามเลย
+            if (now < cooldowns.dash) return; 
+
+            let dashX = lastFacingDir.x;
+            let dashY = lastFacingDir.y;
+
+            if (isMobile && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
+                let len = Math.hypot(joystickVector.x, joystickVector.y);
+                dashX = joystickVector.x / len;
+                dashY = joystickVector.y / len;
+            } else if (inputState.up || inputState.down || inputState.left || inputState.right) {
+                let vx = 0; let vy = 0;
+                if (inputState.up) vy = -1; if (inputState.down) vy = 1;
+                if (inputState.left) vx = -1; if (inputState.right) vx = 1;
+                let len = Math.hypot(vx, vy);
+                if (len > 0) { dashX = vx / len; dashY = vy / len; }
+            }
 
             cooldowns.dash = now + COOLDOWN_TIMES.dash;
-            // ส่งข้อมูลคำสั่งเคลื่อนย้ายแบบก้าวกระโดดไปที่หลังบ้าน
-            socket.emit('player_dash', { dirX: lastFacingDir.x, dirY: lastFacingDir.y });
+            socket.emit('player_dash', { dirX: dashX, dirY: dashY });
         }
 
         function startGame() {
@@ -378,7 +418,6 @@
                     players[updatedPlayer.id].hat = updatedPlayer.hat;
                     players[updatedPlayer.id].charClass = updatedPlayer.charClass;
                     
-                    // หากหลังบ้านเคลียร์พิกัดขยับ (เช่น เกิดผลลัพธ์จากการพุ่ง Dash) ให้ปรับตำแหน่งทันที ไม่ต้อง Lerp ช้าๆ
                     if(Math.abs(players[updatedPlayer.id].x - updatedPlayer.x) > 40) {
                         players[updatedPlayer.id].x = updatedPlayer.x;
                         players[updatedPlayer.id].y = updatedPlayer.y;
