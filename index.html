@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-color-1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ศึกขี้ก้างประจันบานออนไลน์ - Class Battle</title>
     <style>
         body {
@@ -11,7 +11,7 @@
             display: flex; justify-content: center; align-items: center;
             height: 100vh; overflow: hidden; touch-action: none;
         }
-        #menu-container, #game-container { text-align: center; position: relative; width: 100%; max-width: 800px; }
+        #menu-container, #game-container { text-align: center; position: relative; width: 100%; max-width: 900px; }
         #game-container { display: none; }
         
         /* สเกล Canvas ให้ยืดหยุ่นตามหน้าจอ */
@@ -20,10 +20,21 @@
             max-width: 100%; max-height: 85vh; object-fit: contain; display: block; margin: 0 auto; 
         }
         
-        .menu-box { background-color: #333; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin: 5px; }
+        /* หน้าเมนูแบบแบ่งฝั่งซ้าย-ขวา เพื่อรองรับระบบแจ้งเตือนอัปเดต */
+        .menu-layout { display: flex; gap: 15px; justify-content: center; align-items: stretch; flex-wrap: wrap; margin: 10px; }
+        
+        /* 📜 กล่องแจ้งเตือนอัปเดต (Patch Notes) */
+        .update-box { 
+            background-color: #2b2b2b; padding: 15px; border-radius: 10px; border: 2px solid #555;
+            text-align: left; width: 260px; max-height: 280px; overflow-y: auto; font-size: 13px; box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+        .update-box h3 { margin-top: 0; color: #ff4757; border-bottom: 1px solid #444; padding-bottom: 5px; font-size: 15px; }
+        .update-tag { background: #2ed573; color: #000; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-right: 5px; }
+
+        .menu-box { background-color: #333; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); flex: 1; min-width: 320px; }
         input[type="text"] { width: 80%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; background: #444; color: #fff; }
         
-        .customize-section { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 10px 0; background: #2a2a2a; padding: 10px; border-radius: 8px; flex-wrap: wrap; }
+        .customize-section { display: flex; justify-content: center; align-items: center; gap: 15px; margin: 10px 0; background: #2a2a2a; padding: 10px; border-radius: 8px; flex-wrap: wrap; }
         .preview-box { background: #111; border: 2px solid #555; border-radius: 5px; width: 110px; height: 130px; }
         
         .options-box { display: flex; flex-direction: column; gap: 6px; text-align: left; }
@@ -33,14 +44,16 @@
         .btn-option { background: #444; color: white; border: 1px solid #666; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
         .btn-option.active { background: #ff4757; border-color: #ff6b81; }
 
-        button.btn-start { background-color: #ff4757; color: white; border: none; padding: 10px 40px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 60%; font-weight: bold; margin-top: 5px; }
+        button.btn-start { background-color: #ff4757; color: white; border: none; padding: 10px 40px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 70%; font-weight: bold; margin-top: 5px; }
         
-        /* ปุ่ม Fullscreen ขยายเต็มจอ */
-        #btn-fullscreen {
-            position: absolute; top: 50px; right: 10px; background: rgba(0, 0, 0, 0.7); 
-            color: white; border: 2px solid #fff; padding: 6px 10px; border-radius: 5px; 
-            cursor: pointer; font-size: 14px; z-index: 99; font-weight: bold; pointer-events: auto;
+        /* 📺 ปุ่ม Fullscreen ลอยเด่นอยู่มุมขวาบนของเว็บตลอดเวลา ไม่ว่าจะอยู่หน้าไหน */
+        .global-fullscreen-btn {
+            position: fixed; top: 15px; right: 15px; background: #ff4757; 
+            color: white; border: 2px solid #fff; padding: 8px 14px; border-radius: 6px; 
+            cursor: pointer; font-size: 14px; z-index: 99999; font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: background 0.2s;
         }
+        .global-fullscreen-btn:active { background: #ff6b81; }
 
         /* 📱 จัดวางปุ่มบนมือถือ */
         #mobile-controls {
@@ -69,7 +82,7 @@
             display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 0 10px rgba(46, 213, 115, 0.5);
         }
 
-        /* แจ้งเตือนแนะนำให้เล่นแนวนอน (ไม่ล็อกหน้าจอแล้ว แต่เตือนเพื่อความสนุก) */
+        /* แจ้งเตือนแนะนำให้เล่นแนวนอน */
         #orientation-warning {
             display: none; position: fixed; top:0; left:0; width:100%; height:100%;
             background:rgba(17, 17, 17, 0.95); z-index:9999; justify-content:center; align-items:center;
@@ -84,6 +97,8 @@
 </head>
 <body>
 
+    <button class="global-fullscreen-btn" id="btn-fullscreen" onclick="toggleFullscreen()">📺 เต็มจอ</button>
+
     <div id="orientation-warning" onclick="this.style.display='none'">
         <h2 style="color:#ff4757;">🔄 แนะนำให้เล่นแนวแนวนอน</h2>
         <p>กรุณาเอียงจอมือถือ และกดปุ่ม 📺 เต็มจอ เพื่อการมองเห็นที่ครบถ้วน</p>
@@ -91,53 +106,63 @@
     </div>
 
     <div id="menu-container">
-        <div class="menu-box">
-            <h2>⚔️ ศึกขี้ก้างประจันบาน ออนไลน์ ⚔️</h2>
-            <p style="font-size: 12px; color: #aaa; margin: 0;">Q = เส้นตรง | E = ตกจากฟ้า | Spacebar = แดชพุ่ง</p>
+        <div class="menu-layout">
             
-            <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
-            
-            <div class="customize-section">
-                <div>
-                    <canvas id="previewCanvas" width="110" height="130" class="preview-box"></canvas>
-                </div>
-                <div class="options-box">
-                    <div>
-                        <span style="font-size:12px; font-weight:bold;">🎨 สีตัวละคร:</span>
-                        <div class="color-picker">
-                            <div class="color-dot" style="background:#ffffff;" onclick="selectColor('#ffffff')"></div>
-                            <div class="color-dot" style="background:#3498db;" onclick="selectColor('#3498db')"></div>
-                            <div class="color-dot" style="background:#2ecc71;" onclick="selectColor('#2ecc71')"></div>
-                            <div class="color-dot" style="background:#f1c40f;" onclick="selectColor('#f1c40f')"></div>
-                            <div class="color-dot" style="background:#e91e63;" onclick="selectColor('#e91e63')"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <span style="font-size:12px; font-weight:bold;">🎩 หมวกตกแต่ง:</span>
-                        <div class="hat-picker">
-                            <button class="btn-option" onclick="selectHat('none')" id="hat-none">ไม่มี</button>
-                            <button class="btn-option" onclick="selectHat('cowboy')" id="hat-cowboy">คาวบอย</button>
-                            <button class="btn-option" onclick="selectHat('chef')" id="hat-chef">เชฟ</button>
-                            <button class="btn-option" onclick="selectHat('crown')" id="hat-crown">มงกุฎ</button>
-                        </div>
-                    </div>
-                    <div>
-                        <span style="font-size:12px; font-weight:bold;">🛡️ เลือกคลาสอาชีพ:</span>
-                        <div class="class-picker">
-                            <button class="btn-option" onclick="selectClass('mage')" id="class-mage">🔥 นักเวทย์ไฟ</button>
-                            <button class="btn-option" onclick="selectClass('ninja')" id="class-ninja">⚡ นินจา</button>
-                        </div>
-                    </div>
-                </div>
+            <div class="update-box">
+                <h3>📢 บันทึกการอัปเดตเกม</h3>
+                <p><span class="update-tag">NEW</span> <b>ย้ายปุ่มขยายหน้าจอ:</b> ย้ายปุ่ม Fullscreen มาไว้ที่มุมขวาบนตั้งแต่หน้าเมนูแรกเพื่อความสะดวก 📺</p>
+                <p><span class="update-tag">FIX</span> <b>ระบบแดชพุ่งตัว:</b> แก้บั๊กกดแดช (Dash) ตอนเดินไม่ได้ ล็อกเป้าหมายตามทิศทางจอยสติ๊กแม่นยำ 100%</p>
+                <p><span class="update-tag">FIX</span> <b>ระบบสัมผัส:</b> อัปเดต Multi-touch แยกแยะนิ้วซ้าย-ขวา เดินไปกดสกิลไปได้อิสระ</p>
+                <p style="font-size:11px; color:#777; text-align:center; margin-top:15px;">— กำลังอยู่ในช่วงทดสอบระบบ —</p>
             </div>
 
-            <button class="btn-start" onclick="startGame()">เข้าสู่สนามรบ</button>
+            <div class="menu-box">
+                <h2>⚔️ ศึกขี้ก้างประจันบาน ออนไลน์ ⚔️</h2>
+                <p style="font-size: 12px; color: #aaa; margin: 0;">Q = เส้นตรง | E = ตกจากฟ้า | Spacebar = แดชพุ่ง</p>
+                
+                <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
+                
+                <div class="customize-section">
+                    <div>
+                        <canvas id="previewCanvas" width="110" height="130" class="preview-box"></canvas>
+                    </div>
+                    <div class="options-box">
+                        <div>
+                            <span style="font-size:12px; font-weight:bold;">🎨 สีตัวละคร:</span>
+                            <div class="color-picker">
+                                <div class="color-dot" style="background:#ffffff;" onclick="selectColor('#ffffff')"></div>
+                                <div class="color-dot" style="background:#3498db;" onclick="selectColor('#3498db')"></div>
+                                <div class="color-dot" style="background:#2ecc71;" onclick="selectColor('#2ecc71')"></div>
+                                <div class="color-dot" style="background:#f1c40f;" onclick="selectColor('#f1c40f')"></div>
+                                <div class="color-dot" style="background:#e91e63;" onclick="selectColor('#e91e63')"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <span style="font-size:12px; font-weight:bold;">🎩 หมวกตกแต่ง:</span>
+                            <div class="hat-picker">
+                                <button class="btn-option" onclick="selectHat('none')" id="hat-none">ไม่มี</button>
+                                <button class="btn-option" onclick="selectHat('cowboy')" id="hat-cowboy">คาวบอย</button>
+                                <button class="btn-option" onclick="selectHat('chef')" id="hat-chef">เชฟ</button>
+                                <button class="btn-option" onclick="selectHat('crown')" id="hat-crown">มงกุฎ</button>
+                            </div>
+                        </div>
+                        <div>
+                            <span style="font-size:12px; font-weight:bold;">🛡️ เลือกคลาสอาชีพ:</span>
+                            <div class="class-picker">
+                                <button class="btn-option" onclick="selectClass('mage')" id="class-mage">🔥 นักเวทย์ไฟ</button>
+                                <button class="btn-option" onclick="selectClass('ninja')" id="class-ninja">⚡ นินจา</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-start" onclick="startGame()">เข้าสู่สนามรบ</button>
+            </div>
+
         </div>
     </div>
 
     <div id="game-container">
-        <button id="btn-fullscreen" onclick="toggleFullscreen()">📺 เต็มจอ</button>
-        
         <canvas id="gameCanvas" width="800" height="450"></canvas>
         <div id="mobile-controls">
             <div id="joystick-base">
@@ -196,7 +221,6 @@
             }
         });
 
-        // 📺 ฟังก์ชันเปิด-ปิดโหมดเต็มจอขยายหน้าต่างเกม
         function toggleFullscreen() {
             let elem = document.documentElement;
             if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
@@ -210,7 +234,6 @@
                 else if (document.msExitFullscreen) { document.msExitFullscreen(); }
                 document.getElementById('btn-fullscreen').innerText = "📺 เต็มจอ";
             }
-            // รีเฟรชตำแหน่ง Layout เล็กน้อยหลังจากขยายจอ
             setTimeout(() => { window.scrollTo(0,1); }, 300);
         }
 
