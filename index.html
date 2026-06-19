@@ -1,4 +1,118 @@
-<script>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ศึกขี้ก้างประจันบานออนไลน์ - Class Battle</title>
+    <style>
+        body {
+            margin: 0; padding: 0; background-color: #222; color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; touch-action: none;
+        }
+        #menu-container, #game-container { text-align: center; position: relative; width: 100%; max-width: 800px; }
+        #game-container { display: none; }
+        canvas { background-color: #111; border: 4px solid #444; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 100%; height: auto; display: block; margin: 0 auto; }
+        
+        .menu-box { background-color: #333; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); margin: 10px; }
+        input[type="text"] { width: 80%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; background: #444; color: #fff; }
+        
+        .customize-section { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 10px 0; background: #2a2a2a; padding: 15px; border-radius: 8px; flex-wrap: wrap; }
+        .preview-box { background: #111; border: 2px solid #555; border-radius: 5px; width: 130px; height: 160px; }
+        
+        .options-box { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+        .color-picker, .hat-picker, .class-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+        .color-dot { width: 25px; height: 25px; border-radius: 50%; cursor: pointer; border: 2px solid #fff; }
+        .color-dot.active { border-color: #ff4757; transform: scale(1.1); }
+        .btn-option { background: #444; color: white; border: 1px solid #666; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .btn-option.active { background: #ff4757; border-color: #ff6b81; }
+
+        button.btn-start { background-color: #ff4757; color: white; border: none; padding: 12px 40px; font-size: 18px; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 60%; font-weight: bold; margin-top: 5px; }
+        
+        #mobile-controls {
+            display: none; justify-content: space-between; align-items: center; 
+            padding: 10px 20px; background-color: #1a1a1a; width: 100%; margin-top: 5px; border-radius: 10px; box-sizing: border-box;
+        }
+        #joystick-base {
+            width: 100px; height: 100px; background-color: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 50%; position: relative; touch-action: none;
+        }
+        #joystick-stick {
+            width: 40px; height: 40px; background-color: #ff4757;
+            border-radius: 50%; position: absolute; top: 27px; left: 27px; touch-action: none;
+        }
+        .skill-container { display: flex; gap: 15px; }
+        .btn-skill {
+            width: 55px; height: 55px; background-color: #2f3542; border: 2px solid #57606f;
+            border-radius: 50%; color: white; font-weight: bold; font-size: 12px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
+        }
+        .btn-skill:active { background-color: #ff4757; }
+    </style>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+
+    <div id="menu-container">
+        <div class="menu-box">
+            <h2>⚔️ ศึกขี้ก้างประจันบาน ออนไลน์ ⚔️</h2>
+            <p style="font-size: 13px; color: #aaa; margin: 0;">เลือกคลาส สกิลเล็งเส้นแดง และสู้ด้วยระบบ 3 หัวใจ</p>
+            
+            <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
+            
+            <div class="customize-section">
+                <div>
+                    <canvas id="previewCanvas" width="130" height="160" class="preview-box"></canvas>
+                </div>
+                <div class="options-box">
+                    <div>
+                        <span style="font-size:13px; font-weight:bold;">🎨 สีตัวละคร:</span>
+                        <div class="color-picker">
+                            <div class="color-dot" style="background:#ffffff;" onclick="selectColor('#ffffff')" id="col-#ffffff"></div>
+                            <div class="color-dot" style="background:#3498db;" onclick="selectColor('#3498db')" id="col-#3498db"></div>
+                            <div class="color-dot" style="background:#2ecc71;" onclick="selectColor('#2ecc71')" id="col-#2ecc71"></div>
+                            <div class="color-dot" style="background:#f1c40f;" onclick="selectColor('#f1c40f')" id="col-#f1c40f"></div>
+                            <div class="color-dot" style="background:#e91e63;" onclick="selectColor('#e91e63')" id="col-#e91e63"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; font-weight:bold;">🎩 หมวกตกแต่ง:</span>
+                        <div class="hat-picker">
+                            <button class="btn-option" onclick="selectHat('none')" id="hat-none">ไม่มี</button>
+                            <button class="btn-option" onclick="selectHat('cowboy')" id="hat-cowboy">คาวบอย</button>
+                            <button class="btn-option" onclick="selectHat('chef')" id="hat-chef">เชฟ</button>
+                            <button class="btn-option" onclick="selectHat('crown')" id="hat-crown">มงกุฎ</button>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="font-size:13px; font-weight:bold;">🛡️ เลือกคลาสอาชีพ:</span>
+                        <div class="class-picker">
+                            <button class="btn-option" onclick="selectClass('mage')" id="class-mage">🔥 นักเวทย์ไฟ</button>
+                            <button class="btn-option" onclick="selectClass('ninja')" id="class-ninja">⚡ นินจาสายฟ้า</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-start" onclick="startGame()">เข้าสู่สนามรบ</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        <div id="mobile-controls">
+            <div id="joystick-base">
+                <div id="joystick-stick"></div>
+            </div>
+            <div class="skill-container">
+                <div class="btn-skill" onclick="useSkill(1)"><span>SKILL 1</span><span style="font-size:9px;color:#ff4757;">[J]</span></div>
+                <div class="btn-skill" onclick="useSkill(2)"><span>SKILL 2</span><span style="font-size:9px;color:#ff4757;">[K]</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const pCanvas = document.getElementById('previewCanvas');
@@ -9,7 +123,6 @@
         let gameState = { status: "playing" };
         let gameRunning = false; let isMobile = false;
 
-        // ป้องกันค่า null โดยการใส่ตัวเลือกเผื่อไว้ (Fallback)
         let myCustomColor = localStorage.getItem('b_color') || '#ffffff';
         let myCustomHat = localStorage.getItem('b_hat') || 'none';
         let mySelectedClass = localStorage.getItem('b_class') || 'mage';
@@ -28,7 +141,6 @@
         let joystickVector = { x: 0, y: 0 };
         let lastFacingDir = { x: 1, y: 0 };
 
-        // แก้ไขให้ทำงานปลอดภัยขึ้น ไม่ block ปุ่มกดอื่น ๆ
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 if(localStorage.getItem('b_name')) { 
@@ -42,17 +154,14 @@
         });
 
         function updateCustomUI() {
-            // เคลียร์และไฮไลต์สี
             document.querySelectorAll('.color-dot').forEach(el => el.classList.remove('active'));
             const activeColor = document.getElementById(`col-${myCustomColor}`);
             if(activeColor) activeColor.classList.add('active');
 
-            // เคลียร์และไฮไลต์หมวก
             document.querySelectorAll('.hat-picker .btn-option').forEach(el => el.classList.remove('active'));
             const activeHat = document.getElementById(`hat-${myCustomHat}`);
             if(activeHat) activeHat.classList.add('active');
 
-            // เคลียร์และไฮไลต์คลาส
             document.querySelectorAll('.class-picker .btn-option').forEach(el => el.classList.remove('active'));
             const activeClass = document.getElementById(`class-${mySelectedClass}`);
             if(activeClass) activeClass.classList.add('active');
@@ -157,7 +266,9 @@
             document.getElementById('game-container').style.display = 'block';
 
             setupControls();
-            socket = io('https://tag-game-server.onrender.com'); // อย่าลืมเปลี่ยนเป็น URL ของคุณใน Render ครับ
+            
+            // ⚠️ ปรับลิงก์ของขวัญเซิร์ฟเวอร์ Render ให้ตรงกับของคุณครับ
+            socket = io('https://tag-game-server.onrender.com'); 
 
             socket.on('connect', () => { 
                 myId = socket.id; 
@@ -297,3 +408,5 @@
             window.requestAnimationFrame(gameLoop);
         }
     </script>
+</body>
+</html>
