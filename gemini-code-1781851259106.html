@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมวิ่งไล่จับขี้ก้าง (2nd Person View)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #menu-container, #game-container {
+            text-align: center;
+            position: relative;
+        }
+        #game-container {
+            display: none;
+        }
+        canvas {
+            background-color: #111;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .menu-box {
+            background-color: #333;
+            padding: 4px 40px 40px 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            width: 300px;
+        }
+        input[type="text"] {
+            width: 90%;
+            padding: 10px;
+            margin: 20px 0;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            padding: 10px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #ff6b81;
+        }
+        .controls {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="menu-container">
+        <div class="menu-box">
+            <h2>เกมวิ่งไล่จับขี้ก้าง</h2>
+            <p>มุมมองบุคคลที่ 2 (กล้องวงจรปิด)</p>
+            <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
+            <button onclick="startGame()">เริ่มเกม</button>
+            <div class="controls">
+                วิธีบังคับ: ปุ่มลูกศร หรือ W, A, S, D
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <p>กด <b style="color: #ff4757;">[Spacebar]</b> เพื่อจำลองสถานการณ์ "มีผู้เล่นใหม่เข้ามาแทนบอท"</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let player;
+        let actors = [];
+        let gameRunning = false;
+
+        // รายชื่อกำแพงในเกม (x, y, width, height)
+        const walls = [
+            { x: 200, y: 150, w: 40, h: 200 },
+            { x: 560, y: 150, w: 40, h: 200 },
+            { x: 350, y: 230, w: 100, h: 40 }
+        ];
+
+        // โครงสร้างตัวละคร (ขี้ก้าง)
+        class Character {
+            constructor(x, y, name, isBot = true) {
+                this.x = x;
+                this.y = y;
+                this.radius = 12; // ปรับขนาดเล็กน้อยเพื่อให้หลบในซอกง่ายขึ้น
+                this.speed = 3.5;
+                this.name = name;
+                this.isBot = isBot;
+                this.isIt = false; // ใครเป็นคนไล่จับ (สีแดง)
+                this.color = '#ffffff';
+                this.vx = 0;
+                this.vy = 0;
+                this.cooldown = 0; 
+            }
+
+            update() {
+                if (this.cooldown > 0) this.cooldown--;
+
+                if (this.isBot) {
+                    let target = null;
+                    let minDist = 999999;
+
+                    // หาเป้าหมาย (ไล่ตาม หรือ วิ่งหนี)
+                    actors.forEach(other => {
+                        if (other === this) return;
+                        let d = Math.hypot(other.x - this.x, other.y - this.y);
+
+                        if (this.isIt) {
+                            if (d < minDist) {
+                                minDist = d;
+                                target = other;
+                            }
+                        } else if (other.isIt) {
+                            target = other;
+                        }
+                    });
+
+                    if (target) {
+                        let angle = Math.atan2(target.y - this.y, target.x - this.x);
+                        let desiredVx = Math.cos(angle) * this.speed;
+                        let desiredVy = Math.sin(angle) * this.speed;
+
+                        if (!this.isIt) {
+                            // วิ่งหนีคนเป็นสีแดง
+                            desiredVx = -desiredVx;
+                            desiredVy = -desiredVy;
+                        }
+
+                        // --- ระบบ AI หลบกำแพงขั้นสูง (Raycasting) ---
+                        let nextX = this.x + desiredVx * 2;
+                        let nextY = this.y + desiredVy * 2;
+                        let isHeadingIntoWall = false;
+
+                        for (let wall of walls) {
+                            if (nextX + this.radius > wall.x && nextX - this.radius < wall.x + wall.w &&
+                                nextY + this.radius > wall.y && nextY - this.radius < wall.y + wall.h) {
+                                isHeadingIntoWall = true;
+                                break;
+                            }
+                        }
+
+                        // ถ้าข้างหน้ามีกำแพง หรือบอทกำลังจะติดขอบสนาม ให้หาทางเบี่ยงเดินเลาะกำแพง
+                        if (isHeadingIntoWall || nextX < 30 || nextX > canvas.width - 30 || nextY < 50 || nextY > canvas.height - 30) {
+                            // ลองเบี่ยงไปทางซ้ายหรือขวา 90 องศาเพื่อหาทางเดินเลาะ
+                            let altAngle1 = angle + Math.PI / 2;
+                            let altAngle2 = angle - Math.PI / 2;
+                            
+                            // เลือกมุมที่ทำให้ออกห่างจากอันตราย (หรือไล่ตามได้ดีที่สุด)
+                            let chosenAngle = altAngle1;
+                            if (!this.isIt) {
+                                // ถ้าวิ่งหนี ให้เลือกทางที่อยู่ไกลจากคนไล่มากกว่า
+                                let dist1 = Math.hypot((this.x + Math.cos(altAngle1)*this.speed) - target.x, (this.y + Math.sin(altAngle1)*this.speed) - target.y);
+                                let dist2 = Math.hypot((this.x + Math.cos(altAngle2)*this.speed) - target.x, (this.y + Math.sin(altAngle2)*this.speed) - target.y);
+                                chosenAngle = dist1 > dist2 ? altAngle1 : altAngle2;
+                            }
+
+                            this.vx = Math.cos(chosenAngle) * (this.speed * 0.9);
+                            this.vy = Math.sin(chosenAngle) * (this.speed * 0.9);
+                        } else {
+                            this.vx = desiredVx;
+                            this.vy = desiredVy;
+                        }
+                    }
+                }
+
+                // เคลื่อนที่แกน X และเช็คชนกำแพง/ขอบสนาม
+                this.x += this.vx;
+                this.handleWallCollision('x');
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+
+                // เคลื่อนที่แกน Y และเช็คชนกำแพง/ขอบสนาม
+                this.y += this.vy;
+                this.handleWallCollision('y');
+                this.y = Math.max(this.radius + 40, Math.min(canvas.height - this.radius, this.y));
+            }
+
+            // ฟังก์ชันเช็คการชนกำแพงแยกทีละแกนเพื่อให้สไลด์ไปตามขอบกำแพงได้ลื่นไหล
+            handleWallCollision(axis) {
+                for (let wall of walls) {
+                    if (this.x + this.radius > wall.x && this.x - this.radius < wall.x + wall.w &&
+                        this.y + this.radius > wall.y && this.y - this.radius < wall.y + wall.h) {
+                        
+                        if (axis === 'x') {
+                            if (this.vx > 0) this.x = wall.x - this.radius;
+                            if (this.vx < 0) this.x = wall.x + wall.w + this.radius;
+                        }
+                        if (axis === 'y') {
+                            if (this.vy > 0) this.y = wall.y - this.radius;
+                            if (this.vy < 0) this.y = wall.y + wall.h + this.radius;
+                        }
+                    }
+                }
+            }
+
+            draw() {
+                // แก้ไข: คนที่ไม่เป็นทั้งหมด (ทั้งคนเล่นและบอท) จะเป็นสีขาว (#ffffff) ส่วนคนที่เป็นจะเป็นสีแดง (#ff4757)
+                this.color = this.isIt ? '#ff4757' : '#ffffff';
+
+                ctx.strokeStyle = this.color;
+                ctx.fillStyle = this.color;
+                ctx.lineWidth = 3;
+
+                // วาดชื่อหัวข้อ
+                ctx.font = "14px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(this.name + (this.isIt ? " [IT]" : ""), this.x, this.y - 30);
+
+                // --- วาดโมเดลคนขี้ก้าง (Stickman) ---
+                // หัว
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - 15, 6, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // ลำตัว
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 9);
+                ctx.lineTo(this.x, this.y + 5);
+                ctx.stroke();
+
+                // แขน
+                ctx.beginPath();
+                ctx.moveTo(this.x - 10, this.y - 5);
+                ctx.lineTo(this.x + 10, this.y - 5);
+                ctx.stroke();
+
+                // ขา (แกว่งตามทิศทางการเดิน)
+                let walkCycle = Math.sin(Date.now() * 0.015) * 6;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + 5);
+                ctx.lineTo(this.x - 6 + (this.vx * 0.5), this.y + 18);
+                ctx.moveTo(this.x, this.y + 5);
+                ctx.lineTo(this.x + 6 - (this.vx * 0.5), this.y + 18);
+                ctx.stroke();
+            }
+        }
+
+        // เริ่มต้นระบบเกม
+        function startGame() {
+            let nameInput = document.getElementById('username').value.trim();
+            if (nameInput === "") nameInput = "Player";
+
+            document.getElementById('menu-container').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+
+            // สร้างผู้เล่นหลัก
+            player = new Character(100, 250, nameInput, false);
+            actors.push(player);
+
+            // สร้างบอทเริ่มต้น 3 ตัวตำแหน่งกระจายกัน
+            actors.push(new Character(400, 100, "Bot_Somsak"));
+            actors.push(new Character(700, 120, "Bot_Wichai"));
+            actors.push(new Character(700, 380, "Bot_Anong"));
+
+            // สุ่มให้บอทตัวแรกเป็นคนไล่จับ (สีแดง)
+            actors[1].isIt = true;
+
+            gameRunning = true;
+            window.requestAnimationFrame(gameLoop);
+        }
+
+        // ระบบควบคุมคีย์บอร์ด
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+        // ปุ่ม Spacebar จำลองสถานการณ์คนจริงเข้ามาแทนบอท
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space' && gameRunning) {
+                let botIndex = actors.findIndex(actor => actor.isBot);
+                if (botIndex !== -1) {
+                    let bot = actors[botIndex];
+                    let newPlayerNames = ["GamerZ", "Pro_Player", "X_Killer", "NoobMaster"];
+                    let randomName = newPlayerNames[Math.floor(Math.random() * newPlayerNames.length)];
+                    
+                    let newPlayer = new Character(bot.x, bot.y, randomName, false);
+                    newPlayer.isIt = bot.isIt; 
+                    
+                    actors[botIndex] = newPlayer; 
+                    alert(`[ระบบจำลอง]: ผู้เล่น "${randomName}" ได้เข้ามาร่วมเกมแทนที่บอท ${bot.name} แล้ว!`);
+                }
+            }
+        });
+
+        function handleInput() {
+            player.vx = 0;
+            player.vy = 0;
+            if (keys['arrowup'] || keys['w']) player.vy = -player.speed;
+            if (keys['arrowdown'] || keys['s']) player.vy = player.speed;
+            if (keys['arrowleft'] || keys['a']) player.vx = -player.speed;
+            if (keys['arrowright'] || keys['d']) player.vx = player.speed;
+        }
+
+        function checkCollisions() {
+            for (let i = 0; i < actors.length; i++) {
+                for (let j = i + 1; j < actors.length; j++) {
+                    let a = actors[i];
+                    let b = actors[j];
+
+                    let dist = Math.hypot(a.x - b.x, a.y - b.y);
+                    if (dist < (a.radius + b.radius + 5)) { // เพิ่มระยะชนนิดหน่อยเพื่อให้โดนง่ายขึ้นตามโมเดลขี้ก้าง
+                        if ((a.isIt || b.isIt) && a.cooldown === 0 && b.cooldown === 0) {
+                            a.isIt = !a.isIt;
+                            b.isIt = !b.isIt;
+                            a.cooldown = 60; // บังคับคูลดาวน์ 1 วินาทีกันส่งต่อทันที
+                            b.cooldown = 60;
+                        }
+                    }
+                }
+            }
+        }
+
+        // วาดกำแพงลงบน Map
+        function drawWalls() {
+            ctx.fillStyle = '#555555';
+            ctx.strokeStyle = '#888888';
+            ctx.lineWidth = 2;
+            walls.forEach(wall => {
+                ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+                ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+            });
+        }
+
+        // ลูปหลักของเกม
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // วาดกำแพงก่อนตัวละคร
+            drawWalls();
+
+            // ส่วนหัวข้อด้านบน
+            ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+            ctx.fillRect(0, 0, canvas.width, 35);
+            ctx.fillStyle = "#fff";
+            ctx.font = "16px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText(" เกมวิ่งไล่จับ (คนไม่เป็น = สีขาว | คนเป็น = สีแดง)", 20, 23);
+
+            handleInput();
+            checkCollisions();
+
+            // อัปเดตและวาดตัวละครทั้งหมด
+            actors.forEach(actor => {
+                actor.update();
+                actor.draw();
+            });
+
+            window.requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
