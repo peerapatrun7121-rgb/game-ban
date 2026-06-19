@@ -32,7 +32,7 @@
             text-align: left; width: 260px; max-height: 280px; overflow-y: auto; font-size: 13px; box-shadow: 0 0 15px rgba(0,0,0,0.3);
         }
         .update-box h3 { margin-top: 0; color: #ff4757; border-bottom: 1px solid #444; padding-bottom: 5px; font-size: 15px; }
-        .update-tag { background: #2ed573; color: #000; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-right: 5px; }
+        .update-tag { background: #ffa502; color: #000; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-right: 5px; }
 
         .menu-box { background-color: #333; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); flex: 1; min-width: 320px; }
         input[type="text"] { width: 80%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; background: #444; color: #fff; }
@@ -56,7 +56,7 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
 
-        /* 📱 ปุ่มกดในมือถือ */
+        /* 📱 จัดวางปุ่มควบคุมบนมือถือ */
         #mobile-controls {
             display: none; justify-content: space-between; align-items: center; 
             position: absolute; bottom: 15px; left: 15px; right: 15px;
@@ -70,21 +70,14 @@
             width: 40px; height: 40px; background-color: #ff4757;
             border-radius: 50%; position: absolute; top: 27px; left: 27px; pointer-events: none;
         }
-        .right-controls { display: flex; align-items: flex-end; gap: 15px; pointer-events: auto; }
-        .skill-container { display: flex; flex-direction: column; gap: 10px; }
+        .right-controls { display: flex; align-items: center; pointer-events: auto; }
+        .skill-container { display: flex; flex-direction: row; gap: 15px; }
         
-        /* เพิ่มขนาดและปรับส่วนสัมผัสของปุ่มให้ตอบสนองดีขึ้น */
         .btn-skill {
-            width: 52px; height: 52px; background-color: rgba(47, 53, 66, 0.9); border: 2px solid #57606f;
-            border-radius: 50%; color: white; font-weight: bold; font-size: 12px;
-            display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
-            user-select: none; -webkit-user-select: none;
-        }
-        .btn-dash {
-            width: 64px; height: 64px; background-color: #2ed573; border: 3px solid #fff;
+            width: 58px; height: 58px; background-color: rgba(47, 53, 66, 0.9); border: 2px solid #57606f;
             border-radius: 50%; color: white; font-weight: bold; font-size: 14px;
-            display: flex; justify-content: center; align-items: center; cursor: pointer; 
-            box-shadow: 0 0 15px rgba(46, 213, 115, 0.6); user-select: none; -webkit-user-select: none;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer;
+            user-select: none; -webkit-user-select: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
         #orientation-warning {
@@ -114,14 +107,14 @@
             
             <div class="update-box">
                 <h3>📢 บันทึกการอัปเดตเกม</h3>
-                <p><span class="update-tag">FIX</span> <b>ระบบแดชพุ่งตัวตอนเดิน:</b> แก้ไขโค้ดส่วนเช็คทิศทางอย่างสิ้นเชิง ตอนนี้สามารถกด แดช (Dash) ในขณะที่ลากจอยสติ๊กเดินอยู่ได้อย่างลื่นไหลแล้ว 💨</p>
-                <p><span class="update-tag">FIX</span> <b>ระบบสัมผัสแยกฝั่ง:</b> ปรับปรุง Multi-touch บนมือถือ ไม่ให้ปุ่มกดสกิลและจอยสติ๊กแย่งสัญญาณกัน</p>
+                <p><span class="update-tag">BUG FIX</span> <b>แก้บัคกด E แล้วหาย:</b> เพิ่มฟังก์ชันตรวจสอบขอบเขตความปลอดภัย (Boundary Clamp) ป้องกันตัวละครหลุดทะลุเฟรมหน้าจอเมื่อกดใช้สกิล E ดิ่งจากฟ้า 🛠️</p>
+                <p><span class="update-tag">STABLE</span> <b>ระบบดักจับพิกัด:</b> เพิ่มระบบรีเซ็ตพิกัดอัตโนมัติหาก Server ส่งค่าตำแหน่งที่ผิดปกติเข้ามา</p>
                 <p style="font-size:11px; color:#777; text-align:center; margin-top:15px;">— กำลังอยู่ในช่วงทดสอบระบบ —</p>
             </div>
 
             <div class="menu-box">
                 <h2>⚔️ ศึกขี้ก้างประจันบาน ออนไลน์ ⚔️</h2>
-                <p style="font-size: 12px; color: #aaa; margin: 0;">Q = เส้นตรง | E = ตกจากฟ้า | Spacebar = แดชพุ่ง</p>
+                <p style="font-size: 12px; color: #aaa; margin: 0;">Q = เส้นตรง | E = ตกจากฟ้า</p>
                 
                 <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
                 
@@ -172,7 +165,6 @@
                 <div id="joystick-stick"></div>
             </div>
             <div class="right-controls">
-                <div class="btn-dash" id="btn-dash-mb">DASH</div>
                 <div class="skill-container">
                     <div class="btn-skill" id="btn-s1-mb">Q</div>
                     <div class="btn-skill" id="btn-s2-mb">E</div>
@@ -209,8 +201,8 @@
         let joystickVector = { x: 0, y: 0 };
         let lastFacingDir = { x: 1, y: 0 };
 
-        let cooldowns = { skill1: 0, skill2: 0, dash: 0 }; 
-        const COOLDOWN_TIMES = { skill1: 2000, skill2: 5000, dash: 4000 }; 
+        let cooldowns = { skill1: 0, skill2: 0 }; 
+        const COOLDOWN_TIMES = { skill1: 2000, skill2: 5000 }; 
 
         window.addEventListener('DOMContentLoaded', () => {
             try {
@@ -290,7 +282,6 @@
                 handleKey(e.key, true); 
                 if(e.key.toLowerCase() === 'q') useSkill(1);
                 if(e.key.toLowerCase() === 'e') useSkill(2);
-                if(e.key === ' ') useDash(); 
             });
             window.addEventListener('keyup', e => { handleKey(e.key, false); });
             if (isMobile) { 
@@ -310,14 +301,12 @@
         function setupMultiTouchControls() {
             const base = document.getElementById('joystick-base');
             const stick = document.getElementById('joystick-stick');
-            const btnDash = document.getElementById('btn-dash-mb');
             const btnS1 = document.getElementById('btn-s1-mb');
             const btnS2 = document.getElementById('btn-s2-mb');
 
             let joystickTouchId = null;
             let maxRadius = 35;
 
-            // แก้ไขระบบสัมผัส Multi-touch แยกแยะนิ้วซ้ายกับนิ้วขวาอย่างเด็ดขาด
             window.addEventListener('touchstart', (e) => {
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     const touch = e.changedTouches[i];
@@ -327,8 +316,6 @@
                         joystickTouchId = touch.identifier;
                         updateJoystickPosition(touch, base, stick, maxRadius);
                     }
-                    // ใช้ preventDefault และทำงานทันทีเพื่อให้ตอบสนองไวที่สุด แม้ตัวละครจะเดินอยู่
-                    if (targetEl === btnDash) { e.preventDefault(); useDash(); }
                     if (targetEl === btnS1) { e.preventDefault(); useSkill(1); }
                     if (targetEl === btnS2) { e.preventDefault(); useSkill(2); }
                 }
@@ -389,41 +376,6 @@
             socket.emit('cast_skill', { skillNum: skillNumber, dirX: lastFacingDir.x, dirY: lastFacingDir.y });
         }
 
-        // 💥 แก้ไขระบบคำนวณทิศทางการแดชพุ่งตัวใหม่ทั้งหมด
-        function useDash() {
-            let me = players[myId]; if (!me || me.isSpectator || me.health <= 0) return;
-            let now = Date.now();
-            if (now < cooldowns.dash) return; 
-
-            let dashX = 0;
-            let dashY = 0;
-
-            // วิธีที่ 1: ตรวจสอบจากการลากจอยสติ๊ก ณ วินาทีนั้น (สำหรับมือถือ)
-            if (isMobile && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
-                let len = Math.hypot(joystickVector.x, joystickVector.y);
-                dashX = joystickVector.x / len;
-                dashY = joystickVector.y / len;
-            } 
-            // วิธีที่ 2: ตรวจสอบจากการกดปุ่มคีย์บอร์ด (สำหรับคอมพิวเตอร์)
-            else if (inputState.up || inputState.down || inputState.left || inputState.right) {
-                if (inputState.up) dashY = -1;
-                if (inputState.down) dashY = 1;
-                if (inputState.left) dashX = -1;
-                if (inputState.right) dashX = 1;
-                let len = Math.hypot(dashX, dashY);
-                if (len > 0) { dashX /= len; dashY /= len; }
-            } 
-            // วิธีที่ 3: หากยืนนิ่งเฉย ๆ ให้พุ่งไปทางทิศล่าสุดที่ตัวละครหันหน้าไป
-            else {
-                dashX = lastFacingDir.x;
-                dashY = lastFacingDir.y;
-            }
-
-            // ส่งคำสั่งแดชไปยัง Server ทันที
-            cooldowns.dash = now + COOLDOWN_TIMES.dash;
-            socket.emit('player_dash', { dirX: dashX, dirY: dashY });
-        }
-
         function startGame() {
             let nameInput = document.getElementById('username').value.trim();
             if (nameInput === "") nameInput = "Player_" + Math.floor(Math.random() * 900 + 100);
@@ -458,6 +410,12 @@
                     players[updatedPlayer.id].color = updatedPlayer.color;
                     players[updatedPlayer.id].hat = updatedPlayer.hat;
                     players[updatedPlayer.id].charClass = updatedPlayer.charClass;
+
+                    // 🛠️ ตรวจจับค่าผิดปกติ (NaN) จากผลของสกิลดิ่งจากฟ้า
+                    if (isNaN(updatedPlayer.x) || isNaN(updatedPlayer.y)) {
+                        updatedPlayer.x = canvas.width / 2;
+                        updatedPlayer.y = canvas.height / 2;
+                    }
                     
                     if(Math.abs(players[updatedPlayer.id].x - updatedPlayer.x) > 40) {
                         players[updatedPlayer.id].x = updatedPlayer.x;
@@ -485,7 +443,7 @@
 
         function backToMenu() {
             gameRunning = false; if(socket) socket.disconnect();
-            projectiles = []; telegraphs = []; cooldowns = { skill1: 0, skill2: 0, dash: 0 };
+            projectiles = []; telegraphs = []; cooldowns = { skill1: 0, skill2: 0 };
             document.body.style.touchAction = "pan-y";
 
             document.getElementById('game-container').style.display = 'none';
@@ -512,8 +470,13 @@
             }
 
             let radius = 12;
-            me.x += me.vx; handleWallCollision(me, 'x', radius); me.x = Math.max(radius, Math.min(canvas.width - radius, me.x));
-            me.y += me.vy; handleWallCollision(me, 'y', radius); me.y = Math.max(radius + 40, Math.min(canvas.height - radius, me.y));
+            me.x += me.vx; handleWallCollision(me, 'x', radius); 
+            me.y += me.vy; handleWallCollision(me, 'y', radius); 
+            
+            // 🛠️ คุมเข้มขอบเขต (Boundary Clamp) ป้องกันหลุดจอเด็ดขาดจากผลสกิลดิ่งจากฟ้า
+            me.x = Math.max(radius, Math.min(canvas.width - radius, me.x));
+            me.y = Math.max(radius + 42, Math.min(canvas.height - radius, me.y));
+
             if (socket && socket.connected) { 
                 socket.emit('player_move_direct', { x: me.x, y: me.y, vx: me.vx, vy: me.vy, facingX: me.facingX, facingY: me.facingY }); 
             }
@@ -523,7 +486,10 @@
             Object.keys(players).forEach(id => {
                 let p = players[id];
                 if (id !== myId && p.targetX !== undefined && p.targetY !== undefined) {
-                    p.x += (p.targetX - p.x) * 0.25; p.y += (p.targetY - p.y) * 0.25;
+                    // ป้องกันค่า NaN ในระบบ Lerp
+                    if (!isNaN(p.targetX) && !isNaN(p.targetY)) {
+                        p.x += (p.targetX - p.x) * 0.25; p.y += (p.targetY - p.y) * 0.25;
+                    }
                 }
             });
         }
@@ -561,11 +527,10 @@
             let now = Date.now();
             let cd1Text = cooldowns.skill1 > now ? `${((cooldowns.skill1 - now)/1000).toFixed(1)}s` : "READY";
             let cd2Text = cooldowns.skill2 > now ? `${((cooldowns.skill2 - now)/1000).toFixed(1)}s` : "READY";
-            let cdDashText = cooldowns.dash > now ? `${((cooldowns.dash - now)/1000).toFixed(1)}s` : "READY";
 
             ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, 42);
             ctx.fillStyle = "#fff"; ctx.font = "12px Arial"; ctx.textAlign = "center";
-            ctx.fillText(`⚡ [Q] สกิล 1: ${cd1Text}   |   ☄️ [E] สกิล 2: ${cd2Text}   |   💨 [Space] แดชพุ่ง: ${cdDashText}`, canvas.width / 2, 26);
+            ctx.fillText(`⚡ [Q] สกิล 1: ${cd1Text}   |   ☄️ [E] สกิล 2: ${cd2Text}`, canvas.width / 2, 26);
 
             updateLocalPlayer(); lerpPlayers(); updateProjectiles();
 
@@ -580,7 +545,7 @@
                         ctx.beginPath(); ctx.moveTo(owner.x, owner.y - 15); ctx.lineTo(owner.x + dx * 280, (owner.y - 15) + dy * 280); ctx.stroke();
                     } else {
                         ctx.strokeStyle = "rgba(255, 71, 87, 0.9)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-                        ctx.beginPath(); ctx.arc(owner.x + dx * 90, (owner.y - 15) + dy * 90, 45, 0, Math.PI * 2); stroke();
+                        ctx.beginPath(); ctx.arc(owner.x + dx * 90, (owner.y - 15) + dy * 90, 45, 0, Math.PI * 2); ctx.stroke();
                     }
                     ctx.restore();
                 }
@@ -614,14 +579,18 @@
             Object.keys(players).forEach(id => {
                 let p = players[id]; let displayColor = p.color || '#ffffff';
                 if (p.isSpectator || p.health <= 0) displayColor = 'rgba(150,150,150,0.3)';
-                ctx.fillStyle = "#aaa"; ctx.font = "11px Arial"; ctx.textAlign = "center";
-                ctx.fillText(p.charClass === 'mage' ? '🔥 นักเวทย์ไฟ' : '⚡ นินจา', p.x, p.y - 45);
-                ctx.fillStyle = displayColor; ctx.font = "bold 13px Arial"; ctx.fillText(p.name, p.x, p.y - 32);
-                if (!p.isSpectator && p.health > 0) {
-                    let heartString = ""; for(let h=0; h<p.health; h++) { heartString += "❤️ "; }
-                    ctx.font = "12px Arial"; ctx.fillText(heartString, p.x, p.y - 58);
+                
+                // ป้องกันไม่ให้วาดตัวละครในตำแหน่ง NaN
+                if(!isNaN(p.x) && !isNaN(p.y)) {
+                    ctx.fillStyle = "#aaa"; ctx.font = "11px Arial"; ctx.textAlign = "center";
+                    ctx.fillText(p.charClass === 'mage' ? '🔥 นักเวทย์ไฟ' : '⚡ นินจา', p.x, p.y - 45);
+                    ctx.fillStyle = displayColor; ctx.font = "bold 13px Arial"; ctx.fillText(p.name, p.x, p.y - 32);
+                    if (!p.isSpectator && p.health > 0) {
+                        let heartString = ""; for(let h=0; h<p.health; h++) { heartString += "❤️ "; }
+                        ctx.font = "12px Arial"; ctx.fillText(heartString, p.x, p.y - 58);
+                    }
+                    drawStickmanVisual(ctx, p.x, p.y, displayColor, p.hat || 'none', p.vx, p.vy);
                 }
-                drawStickmanVisual(ctx, p.x, p.y, displayColor, p.hat || 'none', p.vx, p.vy);
             });
             window.requestAnimationFrame(gameLoop);
         }
