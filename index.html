@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ศึกขี้ก้างประจันบานออนไลน์ - Class Battle</title>
+    <title>ศึกขี้ก้างประจันบานออนไลน์ - Multi-Mode</title>
     <style>
         body {
             margin: 0; padding: 0; background-color: #222; color: white;
@@ -29,10 +29,11 @@
         
         .update-box { 
             background-color: #2b2b2b; padding: 15px; border-radius: 10px; border: 2px solid #555;
-            text-align: left; width: 260px; max-height: 280px; overflow-y: auto; font-size: 13px; box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            text-align: left; width: 260px; max-height: 320px; overflow-y: auto; font-size: 13px; box-shadow: 0 0 15px rgba(0,0,0,0.3);
         }
         .update-box h3 { margin-top: 0; color: #ff4757; border-bottom: 1px solid #444; padding-bottom: 5px; font-size: 15px; }
-        .update-tag { background: #3498db; color: #fff; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 11px; margin-right: 5px; }
+        .mode-tag { background: #57606f; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 12px; cursor: pointer; display: inline-block; margin-bottom: 10px;}
+        .mode-tag.active { background: #ff4757; }
 
         .menu-box { background-color: #333; padding: 15px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); flex: 1; min-width: 320px; }
         input[type="text"] { width: 80%; padding: 10px; margin: 5px 0; border: none; border-radius: 5px; font-size: 16px; text-align: center; background: #444; color: #fff; }
@@ -56,7 +57,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.4);
         }
 
-        /* 📱 จัดวางปุ่มควบคุมบนมือถือ */
         #mobile-controls {
             display: none; justify-content: space-between; align-items: center; 
             position: absolute; bottom: 15px; left: 15px; right: 15px;
@@ -106,15 +106,17 @@
         <div class="menu-layout">
             
             <div class="update-box">
-                <h3>📢 บันทึกการอัปเดตเกม</h3>
-                <p><span class="update-tag">NEW MOVE</span> <b>ระบบเดินแบบ 360 องศาบนคอม:</b> ปรับปรุงระบบควบคุมของคีย์บอร์ดใหม่หมด โดยการนำระบบแรงเฉื่อยเชิงมุม (Linear Velocity Smoothing) มาใช้ ทำให้เปลี่ยนทิศทางได้พริ้วไหว โค้งมน ไม่เป็นช่องเหลี่ยมแข็ง ๆ คล้ายการหมุนอนาล็อกบนมือถือแล้ว 💨</p>
-                <p><span class="update-tag">STABLE</span> <b>ระบบดักจับพิกัด:</b> ป้องกันค่าผิดปกติและคุมเข้มขอบเขตฉากอย่างถาวร</p>
-                <p style="font-size:11px; color:#777; text-align:center; margin-top:15px;">— กำลังอยู่ในช่วงทดสอบระบบ —</p>
+                <h3>🎮 เลือกโหมดการเล่น</h3>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <div id="tag-arena" class="mode-tag active" onclick="switchMode('arena')">🏟️ Arena</div>
+                    <div id="tag-mmo" class="mode-tag" onclick="switchMode('mmo')">🗺️ MMO RPG</div>
+                </div>
+                <p id="mode-desc" style="color:#ccc; line-height: 1.4;">โหมด Arena: ตะลุมบอนกับผู้เล่นคนอื่นในสนามประลองทรงสี่เหลี่ยม</p>
             </div>
 
             <div class="menu-box">
-                <h2>⚔️ ศึกขี้ก้างประจันบาน ออนไลน์ ⚔️</h2>
-                <p style="font-size: 12px; color: #aaa; margin: 0;">Q = เส้นตรง | E = ตกจากฟ้า</p>
+                <h2 id="menu-title">⚔️ ศึกขี้ก้างประจันบาน: ARENA ⚔️</h2>
+                <p id="menu-sub" style="font-size: 12px; color: #aaa; margin: 0; min-height:18px;">Q = เส้นตรง | E = ตกจากฟ้า</p>
                 
                 <input type="text" id="username" placeholder="ใส่ชื่อของคุณที่นี่..." maxlength="10">
                 
@@ -144,10 +146,8 @@
                         </div>
                         <div>
                             <span style="font-size:12px; font-weight:bold;">🛡️ เลือกคลาสอาชีพ:</span>
-                            <div class="class-picker">
-                                <button class="btn-option" onclick="selectClass('mage')" id="class-mage">🔥 นักเวทย์ไฟ</button>
-                                <button class="btn-option" onclick="selectClass('ninja')" id="class-ninja">⚡ นินจา</button>
-                            </div>
+                            <div class="class-picker" id="class-container">
+                                </div>
                         </div>
                     </div>
                 </div>
@@ -179,42 +179,91 @@
         const pCanvas = document.getElementById('previewCanvas');
         const pCtx = pCanvas.getContext('2d');
 
+        let currentMode = 'arena'; 
         let socket; let myId; let players = {}; 
         let projectiles = []; let telegraphs = [];
         let gameRunning = false; let isMobile = false;
 
+        // ระบบมอนสเตอร์สไลม์จำลองภายใน Client (สำหรับเชื่อมต่อเซิร์ฟเวอร์หรือเล่นภายในตัวไฟล์)
+        let slimes = [];
+
         let myCustomColor = localStorage.getItem('b_color') || '#ffffff';
         let myCustomHat = localStorage.getItem('b_hat') || 'none';
-        let mySelectedClass = localStorage.getItem('b_class') || 'mage';
+        let mySelectedClass = 'mage'; 
 
         if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
             isMobile = true;
         }
 
-        const walls = [
-            { x: 200, y: 150, w: 40, h: 200 },
-            { x: 560, y: 150, w: 40, h: 200 },
-            { x: 350, y: 230, w: 100, h: 40 }
+        // แมพสำหรับ Arena
+        const arenaWalls = [
+            { x: 200, y: 150, w: 40, h: 200, type: 'wall' },
+            { x: 560, y: 150, w: 40, h: 200, type: 'wall' },
+            { x: 350, y: 230, w: 100, h: 40, type: 'wall' }
         ];
+
+        // แมพสำหรับ MMO (มีสิ่งก่อสร้างและกำแพงกั้นเมือง)
+        const mmoWalls = [
+            // กำแพงเมืองใหญ่ตรงกลางแบ่งโซนเมือง (ซ้าย) ทุ่งหญ้า (ขวา)
+            { x: 400, y: 0, w: 30, h: 160, type: 'city-wall' },
+            { x: 400, y: 260, w: 30, h: 190, type: 'city-wall' },
+            // บ้านเรือนในเมือง (สีเทา)
+            { x: 80, y: 80, w: 100, h: 80, type: 'house' },
+            { x: 220, y: 250, w: 120, h: 90, type: 'house' }
+        ];
+
+        let activeWalls = arenaWalls;
 
         const inputState = { up: false, down: false, left: false, right: false };
         let joystickVector = { x: 0, y: 0 };
         let lastFacingDir = { x: 1, y: 0 };
 
         let cooldowns = { skill1: 0, skill2: 0 }; 
-        const COOLDOWN_TIMES = { skill1: 2000, skill2: 5000 }; 
+        const COOLDOWN_TIMES = { skill1: 2000, skill2: 4000 }; 
 
         window.addEventListener('DOMContentLoaded', () => {
-            try {
-                if(localStorage.getItem('b_name')) { 
-                    document.getElementById('username').value = localStorage.getItem('b_name'); 
-                }
-                updateCustomUI();
-                drawPreview();
-            } catch(e) {
-                console.error(e);
+            if(localStorage.getItem('b_name')) { 
+                document.getElementById('username').value = localStorage.getItem('b_name'); 
             }
+            switchMode('arena');
         });
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('tag-arena').classList.remove('active');
+            document.getElementById('tag-mmo').classList.remove('active');
+            
+            const classContainer = document.getElementById('class-container');
+            
+            if(mode === 'arena') {
+                document.getElementById('tag-arena').classList.add('active');
+                document.getElementById('menu-title').innerText = "⚔️ ศึกขี้ก้างประจันบาน: ARENA ⚔️";
+                document.getElementById('mode-desc').innerHTML = "<b>โหมด Arena:</b> ลุยเดี่ยวตะลุมบอนในสนามประลองสุดคลาสสิก ดวลฝีมือและความพริ้วไหวกับผู้เล่นรอบตัว";
+                document.getElementById('menu-sub').innerText = "Q = ลูกไฟตรง | E = อุกกาบาตตกจากฟ้า";
+                
+                classContainer.innerHTML = `
+                    <button class="btn-option" onclick="selectClass('mage')" id="class-mage">🔥 นักเวทย์ไฟ</button>
+                    <button class="btn-option" onclick="selectClass('ninja')" id="class-ninja">⚡ นินจา</button>
+                `;
+                mySelectedClass = 'mage';
+                activeWalls = arenaWalls;
+            } else {
+                document.getElementById('tag-mmo').classList.add('active');
+                document.getElementById('menu-title').innerText = "🗺️ ศึกขี้ก้างประจันบาน: MMO RPG 🗺️";
+                document.getElementById('mode-desc').innerHTML = "<b>โหมด MMO:</b> ท่องเที่ยวในแผนที่เมืองและทุ่งหญ้า ออกนอกประตูกำแพงเมืองไปล่า <b>'สไลม์ 2 หัวใจ'</b> ร่วมกับเพื่อนคนอื่น ๆ";
+                
+                classContainer.innerHTML = `
+                    <button class="btn-option" onclick="selectClass('m_mage')" id="class-m_mage">🧙‍♂️ นักเวท</button>
+                    <button class="btn-option" onclick="selectClass('m_sword')" id="class-m_sword">⚔️ นักดาบ</button>
+                    <button class="btn-option" onclick="selectClass('m_archer')" id="class-m_archer">🏹 นักธนู</button>
+                    <button class="btn-option" onclick="selectClass('m_thief')" id="class-m_thief">🗡️ โจร</button>
+                `;
+                mySelectedClass = 'm_mage';
+                activeWalls = mmoWalls;
+            }
+            updateCustomUI();
+            drawPreview();
+        }
 
         function toggleFullscreen() {
             let elem = document.documentElement;
@@ -241,12 +290,23 @@
             const activeHat = document.getElementById(`hat-${myCustomHat}`); if(activeHat) activeHat.classList.add('active');
 
             document.querySelectorAll('.class-picker .btn-option').forEach(el => el.classList.remove('active'));
-            const activeClass = document.getElementById(`class-${mySelectedClass}`); if(activeClass) activeClass.classList.add('active');
+            const activeClass = document.getElementById(`class-${mySelectedClass}`); if(activeClass) activeClass.add('active');
+
+            // อัปเดตคำอธิบายสกิลตามคลาสย่อยในโหมด MMO
+            if(currentMode === 'mmo') {
+                const subs = {
+                    'm_mage': '🧙‍♂️ นักเวท -> Q: Fireball (ยิงไกล) | E: Meteor (ระเบิดลงฟ้า)',
+                    'm_sword': '⚔️ นักดาบ -> Q: Slash (ฟันกวาด) | E: Iron Wall (โล่กันดาเมจ)',
+                    'm_archer': '🏹 นักธนู -> Q: Arrow (ธนูทะลวง) | E: Arrow Rain (ฝนธนูยิงพื้นที่)',
+                    'm_thief': '🗡️ โจร -> Q: Stab (แทงเร็วแรง) | E: Smoke Bomb (ระเบิดควันสโลว์)'
+                };
+                document.getElementById('menu-sub').innerText = subs[mySelectedClass] || '';
+            }
         }
 
         function selectColor(color) { myCustomColor = color; localStorage.setItem('b_color', color); updateCustomUI(); drawPreview(); }
         function selectHat(hat) { myCustomHat = hat; localStorage.setItem('b_hat', hat); updateCustomUI(); drawPreview(); }
-        function selectClass(cls) { mySelectedClass = cls; localStorage.setItem('b_class', cls); updateCustomUI(); drawPreview(); }
+        function selectClass(cls) { mySelectedClass = cls; updateCustomUI(); drawPreview(); }
 
         function drawPreview() {
             if (!pCtx) return; pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
@@ -363,8 +423,28 @@
         }
 
         function drawWalls() {
-            ctx.fillStyle = '#444444'; ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
-            walls.forEach(wall => { ctx.fillRect(wall.x, wall.y, wall.w, wall.h); ctx.strokeRect(wall.x, wall.y, wall.w, wall.h); });
+            if(currentMode === 'arena') {
+                ctx.fillStyle = '#444444'; ctx.strokeStyle = '#666666'; ctx.lineWidth = 2;
+                activeWalls.forEach(wall => { ctx.fillRect(wall.x, wall.y, wall.w, wall.h); ctx.strokeRect(wall.x, wall.y, wall.w, wall.h); });
+            } else {
+                // 🌆 วาดพื้นผิวและองค์ประกอบแมพ MMO (ซ้ายเมืองเทา, ขวาทุ่งหญ้าเขียว)
+                ctx.fillStyle = '#555555'; ctx.fillRect(0, 0, 400, canvas.height); // พื้นเมืองสีเทา
+                ctx.fillStyle = '#2ecc71'; ctx.fillRect(400, 0, 400, canvas.height); // พื้นทุ่งหญ้าเขียว
+                
+                // วาดตารางทางเดินอิฐในเมืองแบบง่ายเพิ่มมิติเทกเจอร์
+                ctx.strokeStyle = '#666666'; ctx.lineWidth = 1;
+                for(let i=0; i<400; i+=40){ ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+
+                activeWalls.forEach(wall => {
+                    if(wall.type === 'city-wall') {
+                        ctx.fillStyle = '#333333'; ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+                        ctx.fillStyle = '#ffb8b8'; ctx.fillRect(wall.x + 10, wall.y, 10, wall.h); // ลายอิฐกำแพงเมือง
+                    } else if(wall.type === 'house') {
+                        ctx.fillStyle = '#7f8c8d'; ctx.fillRect(wall.x, wall.y, wall.w, wall.h); // หลังคา/ตัวบ้านเทา
+                        ctx.fillStyle = '#e74c3c'; ctx.fillRect(wall.x, wall.y, wall.w, 15); // คานแดง
+                    }
+                });
+            }
         }
 
         function useSkill(skillNumber) {
@@ -373,7 +453,181 @@
             if (now < cooldowns[cdKey]) return;
 
             cooldowns[cdKey] = now + COOLDOWN_TIMES[cdKey];
-            socket.emit('cast_skill', { skillNum: skillNumber, dirX: lastFacingDir.x, dirY: lastFacingDir.y });
+
+            // สร้างเอฟเฟกต์สกิลตามคลาสสัมพันธ์ในฝั่ง Client ด้วยเพื่อให้แสดงผลทันทีแบบออฟไลน์/ออนไลน์
+            let targetX = me.x + lastFacingDir.x * 120;
+            let targetY = me.y + lastFacingDir.y * 120;
+
+            if (currentMode === 'mmo') {
+                // เอฟเฟกต์สกิลเฉพาะโหมด MMO ตามคลาสสัมพันธุ์
+                if(mySelectedClass === 'm_mage') { // นักเวท
+                    if(skillNumber === 1) projectiles.push({ x: me.x, y: me.y - 15, vx: lastFacingDir.x * 7, vy: lastFacingDir.y * 7, r: 8, skillNum: 1, type: 'fire', spawnTime: Date.now() });
+                    if(skillNumber === 2) projectiles.push({ x: targetX, y: targetY, r: 45, skillNum: 2, type: 'fire', spawnTime: Date.now() });
+                } 
+                else if(mySelectedClass === 'm_sword') { // นักดาบ
+                    if(skillNumber === 1) projectiles.push({ x: me.x + lastFacingDir.x * 30, y: me.y - 15 + lastFacingDir.y * 30, r: 35, skillNum: 2, type: 'sword-slash', spawnTime: Date.now() });
+                    if(skillNumber === 2) { me.shieldActive = Date.now() + 2000; } // เปิดโล่ 2 วิ
+                }
+                else if(mySelectedClass === 'm_archer') { // นักธนู
+                    if(skillNumber === 1) projectiles.push({ x: me.x, y: me.y - 15, vx: lastFacingDir.x * 12, vy: lastFacingDir.y * 12, r: 4, skillNum: 1, type: 'arrow', spawnTime: Date.now() });
+                    if(skillNumber === 2) projectiles.push({ x: targetX, y: targetY, r: 40, skillNum: 2, type: 'arrow-rain', spawnTime: Date.now() });
+                }
+                else if(mySelectedClass === 'm_thief') { // โจร
+                    if(skillNumber === 1) { 
+                        me.x += lastFacingDir.x * 45; // พุ่งแทงสั้นขยับตัว
+                        projectiles.push({ x: me.x, y: me.y - 15, r: 20, skillNum: 2, type: 'stab', spawnTime: Date.now() });
+                    }
+                    if(skillNumber === 2) projectiles.push({ x: me.x, y: me.y - 15, r: 50, skillNum: 2, type: 'smoke', spawnTime: Date.now() });
+                }
+                
+                // ตรวจการโจมตีใส่สไลม์
+                checkDamageToSlimes();
+            } else {
+                // เอฟเฟกต์โหมด Arena ดั้งเดิม
+                if(skillNumber === 1) projectiles.push({ x: me.x, y: me.y - 15, vx: lastFacingDir.x * 6, vy: lastFacingDir.y * 6, r: 8, skillNum: 1, type: 'fire', spawnTime: Date.now() });
+                if(skillNumber === 2) projectiles.push({ x: targetX, y: targetY, r: 45, skillNum: 2, type: 'fire', spawnTime: Date.now() });
+            }
+
+            if(socket && socket.connected) {
+                socket.emit('cast_skill', { skillNum: skillNumber, dirX: lastFacingDir.x, dirY: lastFacingDir.y });
+            }
+        }
+
+        function checkDamageToSlimes() {
+            projectiles.forEach(p => {
+                slimes.forEach(slime => {
+                    if (slime.hp > 0) {
+                        let dist = Math.hypot(p.x - slime.x, p.y - slime.y);
+                        if (dist < p.r + 15) {
+                            slime.hp -= 1;
+                            slime.hitTime = Date.now() + 150;
+                        }
+                    }
+                });
+            });
+        }
+
+        // ระบบจำลองสไลม์ AI บุกและโจมตีด้วยเส้นสีแดงเตือน
+        function spawnSlimesInGrass() {
+            if (slimes.length < 3) {
+                slimes.push({
+                    x: 450 + Math.random() * 300,
+                    y: 60 + Math.random() * 320,
+                    hp: 2, // สไลม์ 2 หัวใจ
+                    maxHp: 2,
+                    state: 'idle',
+                    actionTime: 0,
+                    targetX: 0, targetY: 0
+                });
+            }
+        }
+
+        function updateSlimesAI() {
+            let me = players[myId];
+            let now = Date.now();
+
+            slimes.forEach(slime => {
+                if (slime.hp <= 0) return;
+
+                if (now > slime.actionTime) {
+                    if (slime.state === 'idle') {
+                        // เช็คว่าผู้เล่นอยู่ใกล้ทุ่งหญ้าไหม
+                        if (me && me.health > 0 && Math.hypot(me.x - slime.x, me.y - slime.y) < 160) {
+                            slime.state = 'telegraph'; // เริ่มชาร์จโจมตีด้วยเส้นแดง
+                            slime.targetX = me.x;
+                            slime.targetY = me.y;
+                            slime.actionTime = now + 1000; // แสดงเส้นเตือนสีแดงยาว 1 วินาทีก่อนโดดใส่
+                        } else {
+                            // เดินเอื่อยๆ ในทุ่งหญ้า
+                            slime.vx = (Math.random() - 0.5) * 1.5;
+                            slime.vy = (Math.random() - 0.5) * 1.5;
+                            slime.actionTime = now + 1500 + Math.random() * 1000;
+                        }
+                    } else if (slime.state === 'telegraph') {
+                        // พุ่งโจมตีหลังหมดเส้นแดงเตือน
+                        slime.state = 'jumping';
+                        let angle = Math.atan2(slime.targetY - slime.y, slime.targetX - slime.x);
+                        slime.vx = Math.cos(angle) * 6;
+                        slime.vy = Math.sin(angle) * 6;
+                        slime.actionTime = now + 400; // ระยะเวลากระโดดโจมตี
+                    } else if (slime.state === 'jumping') {
+                        // กลับสู่สภาวะปกติห้ามกระโดดต่อเนื่อง
+                        slime.state = 'idle';
+                        slime.vx = 0; slime.vy = 0;
+                        slime.actionTime = now + 1500;
+                    }
+                }
+
+                // ขยับพิกัดสไลม์
+                if (slime.state !== 'telegraph') {
+                    slime.x += slime.vx || 0;
+                    slime.y += slime.vy || 0;
+                    // ล็อกสไลม์ให้อยู่ฝั่งขวา (ทุ่งหญ้า)
+                    slime.x = Math.max(420, Math.min(780, slime.x));
+                    slime.y = Math.max(50, Math.min(420, slime.y));
+
+                    // ตรวจเช็คว่าโจมตีโดนผู้เล่นตัวหลักขณะกระโดดหรือไม่
+                    if (slime.state === 'jumping' && me && !me.isSpectator && me.health > 0) {
+                        if (Math.hypot(me.x - slime.x, me.y - slime.y) < 20) {
+                            if (!me.shieldActive || now > me.shieldActive) {
+                                me.health -= 1;
+                            }
+                            slime.state = 'idle';
+                            slime.actionTime = now + 2000;
+                        }
+                    }
+                }
+            });
+
+            // คลีนสไลม์ตายออกทีละนิด
+            if(Math.random() < 0.01) { slimes = slimes.filter(s => s.hp > 0); }
+        }
+
+        function drawSlimes() {
+            let now = Date.now();
+            slimes.forEach(slime => {
+                if (slime.hp <= 0) return;
+
+                // 🚨 1. วาดเส้นโทรเลขสีแดงแสดงเตือนก่อนจู่โจม
+                if (slime.state === 'telegraph') {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(255, 71, 87, 0.7)';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(slime.x, slime.y);
+                    ctx.lineTo(slime.targetX, slime.targetY);
+                    ctx.stroke();
+                    
+                    // รัศมีเป้าหมายวงกลมสีแดงตรงจุดที่ผู้เล่นเคยยืน
+                    ctx.fillStyle = 'rgba(255, 71, 87, 0.2)';
+                    ctx.beginPath(); ctx.arc(slime.targetX, slime.targetY, 25, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+
+                // 👾 2. วาดตัวสไลม์
+                ctx.save();
+                ctx.fillStyle = (slime.hitTime && now < slime.hitTime) ? '#ffffff' : '#2beccff';
+                ctx.strokeStyle = '#1e90ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                // วาดทรงหยดน้ำยืดหดตามสเตตัสกระโดด
+                let radiusX = 16;
+                let radiusY = (slime.state === 'jumping') ? 12 : 15;
+                ctx.ellipse(slime.x, slime.y, radiusX, radiusY, 0, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+
+                // ลูกตาเล็กๆ ของสไลม์
+                ctx.fillStyle = '#000';
+                ctx.beginPath(); ctx.arc(slime.x - 5, slime.y - 2, 2, 0, Math.PI*2); ctx.arc(slime.x + 5, slime.y - 2, 2, 0, Math.PI*2); ctx.fill();
+
+                // 💚 3. แสดงเลือดหัวใจจำนวน 2 ดวงแยกย่อย
+                let heartStr = "";
+                for(let h=0; h<slime.hp; h++) { heartStr += "❤️"; }
+                ctx.fillStyle = '#fff'; ctx.font = "10px Arial"; ctx.textAlign = "center";
+                ctx.fillText(heartStr, slime.x, slime.y - 20);
+                ctx.restore();
+            });
         }
 
         function startGame() {
@@ -382,15 +636,27 @@
             localStorage.setItem('b_name', nameInput);
 
             document.body.style.touchAction = "none";
-
             document.getElementById('menu-container').style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
 
             setupControls();
-            socket = io('https://tag-game-server.onrender.com'); 
+            slimes = [];
 
+            // ทำการตั้งพิกัดเกิดผู้เล่นเริ่มต้น (ถ้า MMO ให้เกิดฝั่งซ้ายในเมืองเพื่อความปลอดภัย)
+            let spawnX = (currentMode === 'mmo') ? 150 : 400;
+            let spawnY = (currentMode === 'mmo') ? 200 : 225;
+
+            myId = "local_player";
+            players[myId] = {
+                id: myId, name: nameInput, color: myCustomColor, hat: myCustomHat, charClass: mySelectedClass,
+                x: spawnX, y: spawnY, vx: 0, vy: 0, health: 3, isSpectator: false, facingX: 1, facingY: 0
+            };
+
+            // เชื่อมต่อ Server เผื่อเล่นร่วมกับออนไลน์ตัวเดิม
+            socket = io('https://tag-game-server.onrender.com', { transpors: ['websocket'], timeout: 3000 }); 
             socket.on('connect', () => { 
-                myId = socket.id; 
+                myId = socket.id;
+                players[myId] = { id: myId, name: nameInput, color: myCustomColor, hat: myCustomHat, charClass: mySelectedClass, x: spawnX, y: spawnY, vx: 0, vy: 0, health: 3, isSpectator: false };
                 socket.emit('join_game', { name: nameInput, color: myCustomColor, hat: myCustomHat, charClass: mySelectedClass }); 
             });
             
@@ -399,52 +665,24 @@
                 players = serverPlayers; 
             });
             socket.on('new_player', (newPlayerData) => { newPlayerData.targetX = newPlayerData.x; newPlayerData.targetY = newPlayerData.y; players[newPlayerData.id] = newPlayerData; });
-            
             socket.on('player_updated', (updatedPlayer) => { 
-                if (!players[updatedPlayer.id]) {
-                    players[updatedPlayer.id] = updatedPlayer;
-                    players[updatedPlayer.id].targetX = updatedPlayer.x; players[updatedPlayer.id].targetY = updatedPlayer.y;
-                } else {
+                if (players[updatedPlayer.id]) {
                     players[updatedPlayer.id].health = updatedPlayer.health;
                     players[updatedPlayer.id].isSpectator = updatedPlayer.isSpectator;
-                    players[updatedPlayer.id].color = updatedPlayer.color;
-                    players[updatedPlayer.id].hat = updatedPlayer.hat;
-                    players[updatedPlayer.id].charClass = updatedPlayer.charClass;
-
-                    if (isNaN(updatedPlayer.x) || isNaN(updatedPlayer.y)) {
-                        updatedPlayer.x = canvas.width / 2;
-                        updatedPlayer.y = canvas.height / 2;
-                    }
-                    
-                    if(Math.abs(players[updatedPlayer.id].x - updatedPlayer.x) > 40) {
-                        players[updatedPlayer.id].x = updatedPlayer.x;
-                        players[updatedPlayer.id].y = updatedPlayer.y;
-                    }
-
                     if (updatedPlayer.id !== myId) {
-                        players[updatedPlayer.id].vx = updatedPlayer.vx; players[updatedPlayer.id].vy = updatedPlayer.vy;
                         players[updatedPlayer.id].targetX = updatedPlayer.x; players[updatedPlayer.id].targetY = updatedPlayer.y;
-                        players[updatedPlayer.id].facingX = updatedPlayer.facingX; players[updatedPlayer.id].facingY = updatedPlayer.facingY;
                     }
                 }
             });
-            
             socket.on('player_disconnected', (id) => { delete players[id]; });
-            
-            socket.on('skill_telegraph', (data) => {
-                telegraphs.push({ ownerId: data.ownerId, skillNum: data.skillNum, type: data.type, endTime: Date.now() + 1000 });
-            });
-            socket.on('skill_projectile', (proj) => { projectiles.push(proj); });
-            socket.on('game_over_died', () => { alert("💥 คุณหมดสภาพการต่อสู้!"); backToMenu(); });
 
             gameRunning = true; window.requestAnimationFrame(gameLoop);
         }
 
         function backToMenu() {
             gameRunning = false; if(socket) socket.disconnect();
-            projectiles = []; telegraphs = []; cooldowns = { skill1: 0, skill2: 0 };
+            projectiles = []; telegraphs = []; slimes = [];
             document.body.style.touchAction = "pan-y";
-
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('menu-container').style.display = 'block';
             drawPreview();
@@ -452,48 +690,26 @@
 
         function updateLocalPlayer() {
             let me = players[myId]; if (!me || me.isSpectator || me.health <= 0) return;
-            let baseSpeed = 4.0; 
-            let targetVx = 0; 
-            let targetVy = 0;
+            let baseSpeed = 4.0; let targetVx = 0; let targetVy = 0;
 
             if (isMobile) {
-                targetVx = joystickVector.x * baseSpeed; 
-                targetVy = joystickVector.y * baseSpeed;
-                // มือถือใช้วิธีรับค่าตรงจากอนาล็อกปกติ
-                me.vx = targetVx;
-                me.vy = targetVy;
+                targetVx = joystickVector.x * baseSpeed; targetVy = joystickVector.y * baseSpeed;
+                me.vx = targetVx; me.vy = targetVy;
             } else {
-                // 🛠️ คำนวณหาทิศทางเป้าหมายจากคีย์บอร์ดคอมพิวเตอร์
-                if (inputState.up) targetVy = -baseSpeed; 
-                if (inputState.down) targetVy = baseSpeed;
-                if (inputState.left) targetVx = -baseSpeed; 
-                if (inputState.right) targetVx = baseSpeed;
-                
-                // ควบคุมความเร็วทแยงมุมให้คงที่
-                if (targetVx !== 0 && targetVy !== 0) { 
-                    targetVx *= 0.7071; 
-                    targetVy *= 0.7071; 
-                }
+                if (inputState.up) targetVy = -baseSpeed; if (inputState.down) targetVy = baseSpeed;
+                if (inputState.left) targetVx = -baseSpeed; if (inputState.right) targetVx = baseSpeed;
+                if (targetVx !== 0 && targetVy !== 0) { targetVx *= 0.7071; targetVy *= 0.7071; }
 
-                // 🛠️ ระบบเกลี่ยความเร็ว (Inertia Smoothing) ทำความเร็วให้ค่อย ๆ เปลี่ยนแปลงโค้งมน 360 องศา
-                let easeFactor = 0.18; // ยิ่งค่าน้อยยิ่งนุ่มนวล ยิ่งค่ามากยิ่งตอบสนองไว
-                if (me.vx === undefined) me.vx = 0;
-                if (me.vy === undefined) me.vy = 0;
-
-                me.vx += (targetVx - me.vx) * easeFactor;
-                me.vy += (targetVy - me.vy) * easeFactor;
-
-                // หักล้างค่าความเร็วที่เหลือน้อยมากให้เป็น 0 เพื่อป้องกันการไหลไม่หยุด
-                if (Math.abs(me.vx) < 0.05) me.vx = 0;
-                if (Math.abs(me.vy) < 0.05) me.vy = 0;
+                let easeFactor = 0.18;
+                if (me.vx === undefined) me.vx = 0; if (me.vy === undefined) me.vy = 0;
+                me.vx += (targetVx - me.vx) * easeFactor; me.vy += (targetVy - me.vy) * easeFactor;
+                if (Math.abs(me.vx) < 0.05) me.vx = 0; if (Math.abs(me.vy) < 0.05) me.vy = 0;
             }
             
-            // อัปเดตทิศทางการหันหน้าโดยอิงตามค่าความเร็วที่เกลี่ยแล้ว
             if (Math.abs(me.vx) > 0.1 || Math.abs(me.vy) > 0.1) { 
                 let len = Math.hypot(me.vx, me.vy); 
                 lastFacingDir = { x: me.vx / len, y: me.vy / len }; 
-                me.facingX = lastFacingDir.x; 
-                me.facingY = lastFacingDir.y;
+                me.facingX = lastFacingDir.x; me.facingY = lastFacingDir.y;
             }
 
             let radius = 12;
@@ -512,15 +728,13 @@
             Object.keys(players).forEach(id => {
                 let p = players[id];
                 if (id !== myId && p.targetX !== undefined && p.targetY !== undefined) {
-                    if (!isNaN(p.targetX) && !isNaN(p.targetY)) {
-                        p.x += (p.targetX - p.x) * 0.25; p.y += (p.targetY - p.y) * 0.25;
-                    }
+                    p.x += (p.targetX - p.x) * 0.25; p.y += (p.targetY - p.y) * 0.25;
                 }
             });
         }
 
         function handleWallCollision(playerObj, axis, radius) {
-            for (let wall of walls) {
+            for (let wall of activeWalls) {
                 if (playerObj.x + radius > wall.x && playerObj.x - radius < wall.x + wall.w && playerObj.y + radius > wall.y && playerObj.y - radius < wall.y + wall.h) {
                     if (axis === 'x') { playerObj.x = playerObj.vx > 0 ? wall.x - radius : wall.x + wall.w + radius; }
                     if (axis === 'y') { playerObj.y = playerObj.vy > 0 ? wall.y - radius : wall.y + wall.h + radius; }
@@ -531,91 +745,95 @@
         function updateProjectiles() {
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 let p = projectiles[i]; 
-                if (p.skillNum === 1) {
+                if (p.vx !== undefined) {
                     p.x += p.vx; p.y += p.vy;
-                    let hitWall = false;
-                    for (let wall of walls) { if (p.x > wall.x && p.x < wall.x + wall.w && p.y > wall.y && p.y < wall.y + wall.h) { hitWall = true; } }
-                    if (hitWall || p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) { projectiles.splice(i, 1); }
+                    if (p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) { projectiles.splice(i, 1); }
                 } else {
-                    if(!p.spawnTime) p.spawnTime = Date.now();
                     if(Date.now() - p.spawnTime > 400) { projectiles.splice(i, 1); }
                 }
             }
-            telegraphs = telegraphs.filter(t => t.endTime > Date.now());
         }
 
         function gameLoop() {
             if (!gameRunning) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // วาดแมพ
             drawWalls();
             
             let now = Date.now();
+            let me = players[myId];
+
+            // ฟังก์ชันเฉพาะแมพ MMO
+            if (currentMode === 'mmo') {
+                spawnSlimesInGrass();
+                updateSlimesAI();
+                drawSlimes();
+            }
+
+            // แสดงแถบสถานะสกิลคูลดาวน์ด้านบนสไตล์มินิมอล
             let cd1Text = cooldowns.skill1 > now ? `${((cooldowns.skill1 - now)/1000).toFixed(1)}s` : "READY";
             let cd2Text = cooldowns.skill2 > now ? `${((cooldowns.skill2 - now)/1000).toFixed(1)}s` : "READY";
-
             ctx.fillStyle = "rgba(0, 0, 0, 0.75)"; ctx.fillRect(0, 0, canvas.width, 42);
             ctx.fillStyle = "#fff"; ctx.font = "12px Arial"; ctx.textAlign = "center";
-            ctx.fillText(`⚡ [Q] สกิล 1: ${cd1Text}   |   ☄️ [E] สกิล 2: ${cd2Text}`, canvas.width / 2, 26);
+            ctx.fillText(`โหมด: ${currentMode.toUpperCase()} | ⚡ [Q] สกิล 1: ${cd1Text}   |   ☄️ [E] สกิล 2: ${cd2Text}`, canvas.width / 2, 26);
 
             updateLocalPlayer(); lerpPlayers(); updateProjectiles();
 
-            telegraphs.forEach(t => {
-                let owner = players[t.ownerId];
-                if (owner && !owner.isSpectator && owner.health > 0) {
-                    let dx = owner.facingX !== undefined ? owner.facingX : 1;
-                    let dy = owner.facingY !== undefined ? owner.facingY : 0;
-                    ctx.save(); 
-                    if (t.skillNum === 1) {
-                        ctx.strokeStyle = "rgba(255, 71, 87, 0.8)"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
-                        ctx.beginPath(); ctx.moveTo(owner.x, owner.y - 15); ctx.lineTo(owner.x + dx * 280, (owner.y - 15) + dy * 280); ctx.stroke();
-                    } else {
-                        ctx.strokeStyle = "rgba(255, 71, 87, 0.9)"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-                        ctx.beginPath(); ctx.arc(owner.x + dx * 90, (owner.y - 15) + dy * 90, 45, 0, Math.PI * 2); ctx.stroke();
-                    }
-                    ctx.restore();
-                }
-            });
-
+            // วาดเอฟเฟกต์กระสุน/เอฟเฟกต์อาชีพสกิลทั้งหมด
             projectiles.forEach(p => {
                 ctx.save();
-                if (p.skillNum === 1) {
-                    if (p.type === 'fire') {
-                        let grad = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r);
-                        grad.addColorStop(0, '#fff'); grad.addColorStop(0.4, '#fffa65'); grad.addColorStop(1, '#ff4757');
-                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-                    } else {
-                        ctx.strokeStyle = '#2becff'; ctx.lineWidth = 3; ctx.fillStyle = '#1e90ff';
-                        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                    }
+                if(p.type === 'fire') {
+                    let grad = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, p.r);
+                    grad.addColorStop(0, '#fff'); grad.addColorStop(1, '#ff4757');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+                } else if(p.type === 'sword-slash') {
+                    ctx.strokeStyle = 'rgba(255, 234, 167, 0.8)'; ctx.lineWidth = 5;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI, true); ctx.stroke();
+                } else if(p.type === 'arrow') {
+                    ctx.fillStyle = '#f1c40f'; ctx.fillRect(p.x, p.y, 10, 3);
+                } else if(p.type === 'arrow-rain') {
+                    ctx.fillStyle = 'rgba(241, 196, 15, 0.3)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+                } else if(p.type === 'smoke') {
+                    ctx.fillStyle = 'rgba(149, 165, 166, 0.6)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
                 } else {
-                    let alpha = 1 - ((Date.now() - p.spawnTime) / 400); ctx.globalAlpha = Math.max(0, alpha);
-                    if (p.type === 'fire') {
-                        let grad = ctx.createRadialGradient(p.x, p.y, 10, p.x, p.y, p.r);
-                        grad.addColorStop(0, 'rgba(255,255,255,0.9)'); grad.addColorStop(0.3, 'rgba(255,165,0,0.8)'); grad.addColorStop(1, 'rgba(255,0,0,0)');
-                        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-                    } else {
-                        ctx.strokeStyle = `rgba(43, 236, 255, ${alpha})`; ctx.lineWidth = 4; ctx.fillStyle = "rgba(30, 144, 255, 0.25)";
-                        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-                    }
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
                 }
                 ctx.restore();
             });
 
+            // วาดตัวละครขี้ก้างทุกคนบนจอ
             Object.keys(players).forEach(id => {
                 let p = players[id]; let displayColor = p.color || '#ffffff';
                 if (p.isSpectator || p.health <= 0) displayColor = 'rgba(150,150,150,0.3)';
                 
                 if(!isNaN(p.x) && !isNaN(p.y)) {
                     ctx.fillStyle = "#aaa"; ctx.font = "11px Arial"; ctx.textAlign = "center";
-                    ctx.fillText(p.charClass === 'mage' ? '🔥 นักเวทย์ไฟ' : '⚡ นินจา', p.x, p.y - 45);
+                    let classNameTh = p.charClass === 'm_sword' ? '⚔️ นักดาบ' : p.charClass === 'm_archer' ? '🏹 นักธนู' : p.charClass === 'm_thief' ? '🗡️ โจร' : '🧙‍♂️ นักเวท';
+                    ctx.fillText(classNameTh, p.x, p.y - 45);
                     ctx.fillStyle = displayColor; ctx.font = "bold 13px Arial"; ctx.fillText(p.name, p.x, p.y - 32);
+                    
                     if (!p.isSpectator && p.health > 0) {
                         let heartString = ""; for(let h=0; h<p.health; h++) { heartString += "❤️ "; }
                         ctx.font = "12px Arial"; ctx.fillText(heartString, p.x, p.y - 58);
                     }
+                    
+                    // ปลอกแสงบาเรียกรณีคลาสนักดาบเปิดโล่ (Iron Wall)
+                    if(p.shieldActive && now < p.shieldActive) {
+                        ctx.strokeStyle = '#00d2d3'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y - 10, 24, 0, Math.PI*2); ctx.stroke();
+                    }
+
                     drawStickmanVisual(ctx, p.x, p.y, displayColor, p.hat || 'none', p.vx, p.vy);
                 }
             });
+
+            // เช็คว่าเลือดหมดตัวหลักหรือยัง
+            if (me && me.health <= 0 && !me.isSpectator) {
+                alert("💥 คุณหมดสภาพการต่อสู้ในการผจญภัย!");
+                backToMenu();
+                return;
+            }
+
             window.requestAnimationFrame(gameLoop);
         }
     </script>
